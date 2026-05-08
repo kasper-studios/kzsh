@@ -2,7 +2,6 @@
 # KASPERENOK ZSH v5.0 - Main Entrypoint
 
 setopt PROMPT_SUBST
-``
 export KZSH_DIR="${KZSH_DIR:-$HOME/.config/kzsh}"
 
 kcfg() {
@@ -11,7 +10,7 @@ kcfg() {
 
   case "$1" in
     get)
-      awk -v k="$2" -F': *' '$1 == k {print $2}' "$cfg"
+      awk -v k="$2" -F': *' '$1 == k {print $2}' "$cfg" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
       ;;
     set)
       local key="$2"; shift 2

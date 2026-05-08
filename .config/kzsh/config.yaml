@@ -4,11 +4,11 @@ first_run: yes
 
 # --- SYSTEM PROFILES ---
 # Mandatory packages: installed automatically on first run
-profile_mandatory: "curl git zsh bat lsd ripgrep fzf zoxide unzip neovim"
+profile_mandatory: "curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig"
 
 # Optional convenience layers: installed via 'kpkg install <profile>'
-profile_core: "fastfetch btop"
-profile_dev: "nodejs docker docker-compose build-essential"
-profile_desktop: "niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp"
-profile_media: "chromium ayogram-desktop discord mpv"
-profile_extra: "steam wine obs-studio"
+profile_core: fastfetch btop
+profile_dev: nodejs docker docker-compose build-essential
+profile_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp
+profile_media: chromium ayogram-desktop discord mpv
+profile_extra: steam wine obs-studio
