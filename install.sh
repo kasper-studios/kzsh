@@ -33,26 +33,32 @@ if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! com
 fi
 
 # 2. Clone or Update
-if [[ -d "$INSTALL_DIR" ]]; then
-  print_color "🔄 Existing installation found. Updating..."
-  cd "$INSTALL_DIR" && git pull || true
-else
-  print_color "📂 Cloning repository..."
-  git clone "$REPO_URL" "$INSTALL_DIR"
-fi
+TMP_DIR=$(mktemp -d)
+print_color "📂 Downloading repository..."
+git clone "$REPO_URL" "$TMP_DIR"
 
-# 3. Setup .zshrc
-if [[ -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
-  print_color "📄 Backing up existing .zshrc..."
-  mv "$HOME/.zshrc" "$HOME/.zshrc.bak.$(date +%s)"
-fi
+print_color "📦 Installing files..."
+mkdir -p "$INSTALL_DIR"
+# Move contents from repo's .config/kzsh to ~/.config/kzsh
+cp -r "$TMP_DIR/.config/kzsh/." "$INSTALL_DIR/"
+# Move .zshrc if it exists in repo
+[[ -f "$TMP_DIR/.zshrc" ]] && cp "$TMP_DIR/.zshrc" "$HOME/.zshrc"
 
-print_color "🔗 Creating .zshrc entrypoint..."
-cat > "$HOME/.zshrc" << EOF
+rm -rf "$TMP_DIR"
+
+# 3. Ensure entrypoint in .zshrc
+if [[ ! -f "$HOME/.zshrc" ]]; then
+  touch "$HOME/.zshrc"
+fi
+if ! grep -q "kzsh.zsh" "$HOME/.zshrc"; then
+  print_color "🔗 Adding entrypoint to .zshrc..."
+  cat >> "$HOME/.zshrc" << EOF
+
 # KASPERENOK ZSH Entrypoint
 export KZSH_DIR="\$HOME/.config/kzsh"
 [[ -f "\$KZSH_DIR/kzsh.zsh" ]] && source "\$KZSH_DIR/kzsh.zsh"
 EOF
+fi
 
 # 4. Set first_run flag in config
 mkdir -p "$INSTALL_DIR"
