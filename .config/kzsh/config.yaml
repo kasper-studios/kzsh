@@ -4,7 +4,7 @@ first_run: yes
 
 # --- SYSTEM PROFILES ---
 # Mandatory packages: installed automatically on first run
-profile_mandatory: "curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig"
+profile_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig
 
 # Optional convenience layers: installed via 'kpkg install <profile>'
 profile_core: fastfetch btop
