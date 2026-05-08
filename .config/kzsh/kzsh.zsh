@@ -1,7 +1,6 @@
 # ~/.config/kzsh/kzsh.zsh
 # KASPERENOK ZSH v5.0 - Main Entrypoint
 
-setopt PROMPT_SUBST
 export KZSH_DIR="${KZSH_DIR:-$HOME/.config/kzsh}"
 
 kcfg() {
@@ -63,3 +62,6 @@ if [[ -t 0 ]]; then
 fi
 
 [[ -n "$(functions kzsh_post_load)" ]] && kzsh_post_load
+
+# Ensure prompt substitution is active
+setopt PROMPT_SUBST

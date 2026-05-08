@@ -75,9 +75,10 @@ kstart() {
   esac
 }
 
-kcfg list "app_" | while read line; do
-  local name="${line%%:*}"
-  local val="${line#*: }"
+kcfg list "app_" | while read -r line; do
+  [[ -z "$line" ]] && continue
+  local name=$(echo "${line%%:*}" | xargs)
+  local val=$(echo "${line#*: }" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" | xargs)
   alias "$name"="$val"
 done
 
