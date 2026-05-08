@@ -1,8 +1,11 @@
 # ~/.config/kzsh/60-prompt.zsh
 # Premium Modern Prompt (Two-line boxed style)
+setopt PROMPT_SUBST
 
 autoload -Uz vcs_info
-precmd() { vcs_info }
+autoload -Uz add-zsh-hook
+
+add-zsh-hook precmd vcs_info
 
 zstyle ':vcs_info:git:*' formats '%F{242}on%f %F{214} %b%f'
 zstyle ':vcs_info:git:*' actionformats '%F{242}on%f %F{214} %b%f %F{red}(%a)%f'
