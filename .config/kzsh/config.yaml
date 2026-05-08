@@ -1,0 +1,22 @@
+# KASPERENOK ZSH Configuration
+bun_default: yes
+first_run: yes
+
+# --- SYSTEM PROFILES ---
+# Mandatory: essential for KZSH runtime (installed automatically)
+profile_mandatory: "curl git zsh bat lsd ripgrep fzf zoxide unzip neovim"
+
+# Optional: convenience layers (interactive installation)
+profile_core: "fastfetch btop"
+
+# Dev-слой (Arch имя 'build-essential' нужно будет мапить на 'base-devel' внутри kpkg)
+profile_dev: "nodejs docker docker-compose build-essential"
+
+# Desktop-профиль под Wayland + niri
+profile_desktop: "niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp"
+
+# Медиа/коммуникации — доп. слой
+profile_media: "chromium ayogram-desktop discord mpv"
+
+# Экстра-игрушки/приколы — пока пусто, набьёшь по вкусу
+profile_extra: "steam wine obs-studio"
