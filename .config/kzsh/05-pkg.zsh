@@ -50,14 +50,23 @@ kpkg() {
 
   [[ ${#final_pkgs[@]} -eq 0 && "$action" == "install" ]] && return 0
 
+  # Helper for sudo
+  _ksudo() {
+    if [[ "$EUID" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+      sudo "$@"
+    else
+      "$@"
+    fi
+  }
+
   case "$KZSH_DISTRO" in
     ubuntu|debian|kali|pop|mint)
       case "$action" in
-        install) sudo apt update && sudo apt install -y "${final_pkgs[@]}" ;;
-        update)  sudo apt update && sudo apt upgrade -y ;;
+        install) _ksudo apt update && _ksudo apt install -y "${final_pkgs[@]}" ;;
+        update)  _ksudo apt update && _ksudo apt upgrade -y ;;
         check)   dpkg -s "$1" >/dev/null 2>&1 ;;
         search)  apt search "$1" ;;
-        clean)   sudo apt autoremove -y && sudo apt clean ;;
+        clean)   _ksudo apt autoremove -y && _ksudo apt clean ;;
       esac
       ;;
     arch|manjaro|endeavouros)
@@ -79,14 +88,14 @@ kpkg() {
       case "$action" in
         install)
           if [[ "$helper" == "pacman" ]]; then
-            sudo pacman -S --noconfirm "${arch_pkgs[@]}"
+            _ksudo pacman -S --noconfirm "${arch_pkgs[@]}"
           else
             "$helper" -S --noconfirm "${arch_pkgs[@]}"
           fi
           ;;
         update)
           if [[ "$helper" == "pacman" ]]; then
-            sudo pacman -Syu --noconfirm
+            _ksudo pacman -Syu --noconfirm
           else
             "$helper" -Syu --noconfirm
           fi
@@ -94,9 +103,9 @@ kpkg() {
         check)   pacman -Qs "^$1$" >/dev/null 2>&1 ;;
         search)  "$helper" -Ss "$1" ;;
         clean)   
-          sudo pacman -Sc --noconfirm
+          _ksudo pacman -Sc --noconfirm
           if command -v paccache >/dev/null 2>&1; then
-            sudo paccache -r
+            _ksudo paccache -r
           fi
           ;;
       esac
