@@ -10,6 +10,12 @@ kpkg() {
   }
 
   local action="$1"
+  # Shorthands
+  [[ "$action" == "i" ]] && action="install"
+  [[ "$action" == "u" ]] && action="update"
+  [[ "$action" == "s" ]] && action="search"
+  [[ "$action" == "c" ]] && action="check"
+  
   shift
   local input_pkgs=("$@")
   local final_pkgs=()
