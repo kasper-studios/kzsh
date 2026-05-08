@@ -24,9 +24,9 @@ print_color "🚀 Starting KASPERENOK ZSH Remote Installation..."
 
 # 1. Install basics if missing
 if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1; then
-  print_color "📦 Installing base dependencies (git, zsh)..."
+  print_color "📦 Installing base dependencies (git, zsh, which)..."
   if [[ -f /etc/arch-release ]]; then
-    run_cmd pacman -S --noconfirm git zsh curl unzip
+    run_cmd pacman -S --noconfirm git zsh curl unzip which
   elif [[ -f /etc/debian_version ]]; then
     run_cmd apt update && run_cmd apt install -y git zsh curl unzip
   fi
@@ -66,7 +66,7 @@ sed -i 's/first_run: no/first_run: yes/g' "$INSTALL_DIR/config.yaml"
 # 5. Change Shell
 if [[ "$SHELL" != *"zsh"* ]]; then
   print_color "🐚 Changing shell to ZSH..."
-  run_cmd chsh -s "$(which zsh)" "$USER"
+  run_cmd chsh -s "$(command -v zsh)" "$USER"
 fi
 
 print_color "✨ Done! Restart your terminal to enjoy KASPERENOK ZSH."
