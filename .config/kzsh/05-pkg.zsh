@@ -55,6 +55,15 @@ kpkg() {
       esac
       ;;
     arch|manjaro|endeavouros)
+      # Package mapping (Ubuntu -> Arch)
+      local arch_pkgs=()
+      for p in "${final_pkgs[@]}"; do
+        case "$p" in
+          build-essential) arch_pkgs+=("base-devel") ;;
+          *)               arch_pkgs+=("$p") ;;
+        esac
+      done
+
       # Detect AUR helper
       local helper="pacman"
       if command -v yay >/dev/null 2>&1; then helper="yay"
@@ -64,9 +73,9 @@ kpkg() {
       case "$action" in
         install)
           if [[ "$helper" == "pacman" ]]; then
-            sudo pacman -S --noconfirm "${final_pkgs[@]}"
+            sudo pacman -S --noconfirm "${arch_pkgs[@]}"
           else
-            "$helper" -S --noconfirm "${final_pkgs[@]}"
+            "$helper" -S --noconfirm "${arch_pkgs[@]}"
           fi
           ;;
         update)
