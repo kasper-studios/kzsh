@@ -23,12 +23,12 @@ run_cmd() {
 print_color "🚀 Starting KASPERENOK ZSH Remote Installation..."
 
 # 1. Install basics if missing
-if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1; then
-  print_color "📦 Installing base dependencies (git, zsh, which)..."
+if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! command -v which >/dev/null 2>&1; then
+  print_color "📦 Installing base dependencies (git, zsh, which, curl, unzip)..."
   if [[ -f /etc/arch-release ]]; then
-    run_cmd pacman -S --noconfirm git zsh curl unzip which
+    run_cmd pacman -S --noconfirm git zsh which curl unzip
   elif [[ -f /etc/debian_version ]]; then
-    run_cmd apt update && run_cmd apt install -y git zsh curl unzip
+    run_cmd apt update && run_cmd apt install -y git zsh which curl unzip
   fi
 fi
 
