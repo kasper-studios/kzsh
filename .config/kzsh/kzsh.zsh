@@ -17,6 +17,8 @@ kcfg() {
       if grep -q "^$key:" "$cfg"; then
         sed -i "s|^$key:.*|$key: $value|" "$cfg"
       else
+        # Ensure file ends with newline before appending
+        [[ -n $(tail -c 1 "$cfg") ]] && echo "" >> "$cfg"
         echo "$key: $value" >> "$cfg"
       fi
       ;;
