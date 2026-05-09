@@ -3,13 +3,20 @@ set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+if [[ ! -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
+    echo "ERROR: Dependencies not found. Please use the bootstrap script for remote execution:"
+    echo "curl -L https://raw.githubusercontent.com/kasper-studios/kzsh/main/arch-install/bootstrap.sh | bash"
+    exit 1
+fi
+
 source "${SCRIPT_DIR}/lib/common.sh"
 
 # Default values
 DISK=""
-HOSTNAME="kasarch"
-USERNAME="kasper"
-PROFILE="base"
+HOSTNAME="ponosik"
+USERNAME="kasperenok"
+PROFILE="desktop-sddm-niri"
 SWAP_SIZE=""
 
 # Parse arguments
