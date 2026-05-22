@@ -20,4 +20,5 @@ git clone --depth 1 "$REPO_URL" "$TMP_REPO"
 
 # 3. Execute prep.sh from the repository
 echo ">> Starting Stage 1 (prep.sh)..."
+echo ">> Arguments: $@"
 exec bash "$TMP_REPO/arch-install/prep.sh" "$@"
