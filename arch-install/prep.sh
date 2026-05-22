@@ -36,6 +36,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Detect boot mode first
+BOOT_MODE=$(detect_boot_mode)
 check_boot_mode
 check_internet
 
