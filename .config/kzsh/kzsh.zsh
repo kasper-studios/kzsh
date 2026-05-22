@@ -51,7 +51,7 @@ done
 [[ -f "$KZSH_DIR/90-local.zsh" ]] && source "$KZSH_DIR/90-local.zsh"
 
 if [[ -t 0 ]]; then
-  local line1="  🧷  KASPERENOK ZSH v5.5"
+  local line1="  🧷  KASPERENOK ZSH v5.7"
   local line2="  🚀  Distro: ${(C)KZSH_DISTRO}"
   echo ""
   print -P "%F{39}%B╭──────────────────────────────────────────╮%b%f"

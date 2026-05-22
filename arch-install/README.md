@@ -5,11 +5,15 @@ Universal two-stage installer for Arch Linux with UEFI/BIOS support.
 ## Features
 
 - ✅ **Universal Boot Support**: Auto-detects UEFI or BIOS/Legacy mode
-- ✅ **Flexible Bootloader**: systemd-boot (UEFI) or GRUB (BIOS/UEFI)
+- ✅ **Flexible Bootloader**: GRUB (default) or systemd-boot (UEFI only)
 - ✅ **Multiple Filesystems**: BTRFS with subvolumes or ext4
 - ✅ **Modular Profiles**: Choose your installation type
 - ✅ **Optional Swap**: Configurable swap file
 - ✅ **Safety Features**: Validation, error cleanup, size checks
+- ✅ **Distro Detection**: Automatic detection of Arch-based distros
+- ✅ **CPU Microcode**: Auto-detects Intel/AMD and installs appropriate microcode
+- ✅ **KZSH Integration**: Option to install KZSH shell framework post-install
+- ✅ **Smart Validation**: Checks disk size, internet, and prevents system disk installation
 
 ## Quick Start
 
@@ -25,6 +29,7 @@ The installer will prompt you for:
 - Username
 - Filesystem type (btrfs/ext4)
 - Swap size (optional)
+- KZSH installation (yes/no)
 
 ### Automated Installation
 
@@ -35,7 +40,8 @@ curl -L https://raw.githubusercontent.com/kasper-studios/kzsh/main/arch-install/
   --user myuser \
   --profile desktop-sddm-niri \
   --fs btrfs \
-  --swap 4096
+  --swap 4096 \
+  --kzsh yes
 ```
 
 ## Installation Profiles
@@ -89,7 +95,8 @@ Full development environment:
 | `--profile` | Installation profile | `desktop-sddm-niri` | `base` |
 | `--fs` | Filesystem type | `btrfs` | `ext4` |
 | `--swap` | Swap size in MB | none | `4096` |
-| `--bootloader` | Bootloader choice | `auto` | `grub` |
+| `--bootloader` | Bootloader choice | `auto` (grub) | `systemd-boot` |
+| `--kzsh` | Install KZSH post-install | `yes` | `no` |
 | `--debug` | Enable debug output | disabled | - |
 
 ## Two-Stage Process
@@ -133,8 +140,8 @@ reboot
 
 ### UEFI Mode
 - **Partition scheme**: ESP (512MB FAT32) + Root
-- **Default bootloader**: systemd-boot
-- **Alternative**: GRUB (use `--bootloader grub`)
+- **Default bootloader**: GRUB
+- **Alternative**: systemd-boot (use `--bootloader systemd-boot`)
 
 ### BIOS/Legacy Mode
 - **Partition scheme**: BIOS boot (1MB) + Root
@@ -174,7 +181,9 @@ reboot
 
 After reboot, log in with your created user.
 
-### 2. Install KZSH (Optional)
+### 2. Install KZSH (Optional - Auto-installed by default)
+
+If you declined KZSH during post-install, you can install it later:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash

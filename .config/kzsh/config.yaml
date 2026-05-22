@@ -2,11 +2,31 @@
 bun_default: yes
 first_run: yes
 
-# --- SYSTEM PROFILES ---
-# Mandatory packages: installed automatically on first run
+# ============================================
+# DISTRIBUTION-SPECIFIC CONFIGURATION
+# ============================================
+# These profiles are automatically filtered by distro
+
+# --- ARCH LINUX PROFILES ---
+profile_arch_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig networkmanager
+profile_arch_core: fastfetch btop
+profile_arch_dev: nodejs docker docker-compose base-devel
+profile_arch_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp vulkan-radeon brightnessctl
+profile_arch_media: chromium firefox discord mpv
+profile_arch_extra: steam wine obs-studio
+
+# --- DEBIAN/UBUNTU PROFILES ---
+profile_debian_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig network-manager
+profile_debian_core: fastfetch btop
+profile_debian_dev: nodejs docker.io docker-compose build-essential
+profile_debian_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp
+profile_debian_media: chromium-browser firefox-esr discord mpv
+profile_debian_extra: steam-installer wine obs-studio
+
+# --- MANDATORY (fallback) ---
 profile_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig networkmanager
 
-# Optional convenience layers: installed via 'kpkg install <profile>'
+# --- OPTIONAL convenience layers: installed via 'kpkg install <profile>' ---
 profile_core: fastfetch btop
 profile_dev: nodejs docker docker-compose build-essential
 profile_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp vulkan-radeon brightnessctl

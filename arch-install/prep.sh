@@ -12,7 +12,19 @@ fi
 
 source "${SCRIPT_DIR}/lib/common.sh"
 
-# Default values
+# ============================================
+# DISTRIBUTION DETECTION
+# ============================================
+KZSH_DISTRO=$(detect_distro)
+info "Detected distribution: $KZSH_DISTRO"
+
+if ! is_distro_supported "$KZSH_DISTRO"; then
+    error "Unsupported distribution: $KZSH_DISTRO. Only Arch Linux-based distros are supported."
+fi
+
+# ============================================
+# DEFAULT VALUES
+# ============================================
 DISK=""
 HOSTNAME="ponosik"
 USERNAME="kasperenok"
@@ -20,8 +32,11 @@ PROFILE="desktop-sddm-niri"
 SWAP_SIZE=""
 FILESYSTEM="btrfs"
 BOOTLOADER="auto"
+INSTALL_KZSH="yes"
 
-# Parse arguments
+# ============================================
+# PARSE ARGUMENTS
+# ============================================
 while [[ $# -gt 0 ]]; do
     case $1 in
         --disk) DISK="$2"; shift 2 ;;
@@ -31,17 +46,15 @@ while [[ $# -gt 0 ]]; do
         --swap) SWAP_SIZE="$2"; shift 2 ;;
         --fs) FILESYSTEM="$2"; shift 2 ;;
         --bootloader) BOOTLOADER="$2"; shift 2 ;;
+        --kzsh) INSTALL_KZSH="$2"; shift 2 ;;
         --debug) DEBUG=1; shift ;;
         *) shift ;;
     esac
 done
 
-# Detect boot mode first
-BOOT_MODE=$(detect_boot_mode)
-check_boot_mode
-check_internet
-
-# Interactive mode if disk not provided
+# ============================================
+# INTERACTIVE MODE
+# ============================================
 if [[ -z "$DISK" ]]; then
     info "Available disks:"
     lsblk -d -o NAME,SIZE,MODEL,TYPE | grep disk
@@ -54,11 +67,15 @@ if [[ -z "$DISK" ]]; then
     read -rp "Filesystem (btrfs/ext4) [$FILESYSTEM]: " input_fs
     FILESYSTEM="${input_fs:-$FILESYSTEM}"
     read -rp "Swap size in MB (leave empty for none): " SWAP_SIZE
+    read -rp "Install KZSH after setup? [Y/n]: " input_kzsh
+    INSTALL_KZSH="${input_kzsh:-yes}"
 fi
 
-if [[ ! -b "$DISK" ]]; then
-    error "Disk not found: $DISK"
-fi
+# ============================================
+# VALIDATION
+# ============================================
+validate_disk "$DISK"
+check_disk_size "$DISK"
 
 # Validate filesystem choice
 if [[ "$FILESYSTEM" != "btrfs" && "$FILESYSTEM" != "ext4" ]]; then
@@ -67,20 +84,26 @@ fi
 
 # Validate profile
 validate_profile "$PROFILE" "$SCRIPT_DIR"
+validate_profile_distro "$PROFILE" "$SCRIPT_DIR" "$KZSH_DISTRO"
 
-# Check disk size
-check_disk_size "$DISK"
+# Detect boot mode first
+BOOT_MODE=$(detect_boot_mode)
+check_boot_mode
 
 # Determine bootloader based on boot mode
 if [[ "$BOOTLOADER" == "auto" ]]; then
     if [[ "$BOOT_MODE" == "uefi" ]]; then
-        BOOTLOADER="systemd-boot"
+        BOOTLOADER="grub"
     else
         BOOTLOADER="grub"
     fi
 fi
 
+# ============================================
+# CONFIGURATION SUMMARY
+# ============================================
 info "Configuration:"
+info "  Distribution: $KZSH_DISTRO"
 info "  Disk: $DISK"
 info "  Boot Mode: $BOOT_MODE"
 info "  Bootloader: $BOOTLOADER"
@@ -89,6 +112,7 @@ info "  Hostname: $HOSTNAME"
 info "  Username: $USERNAME"
 info "  Profile: $PROFILE"
 [[ -n "$SWAP_SIZE" ]] && info "  Swap: ${SWAP_SIZE}MB"
+info "  Install KZSH: $INSTALL_KZSH"
 
 confirm_strict "$DISK"
 
@@ -172,7 +196,16 @@ fi
 
 info "Installing base system (pacstrap)..."
 # Basic packages plus what's needed for the next stage
-BASE_PACKAGES="base linux linux-firmware vim networkmanager git curl zsh sudo intel-ucode amd-ucode"
+BASE_PACKAGES="base linux linux-firmware vim networkmanager git curl zsh sudo"
+
+# Add CPU microcode based on detected CPU
+if grep -q "GenuineIntel" /proc/cpuinfo; then
+    BASE_PACKAGES="$BASE_PACKAGES intel-ucode"
+    info "Detected Intel CPU, adding intel-ucode"
+elif grep -q "AuthenticAMD" /proc/cpuinfo; then
+    BASE_PACKAGES="$BASE_PACKAGES amd-ucode"
+    info "Detected AMD CPU, adding amd-ucode"
+fi
 
 # Add filesystem-specific tools
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
@@ -203,6 +236,7 @@ BOOT_MODE=$BOOT_MODE
 BOOTLOADER=$BOOTLOADER
 FILESYSTEM=$FILESYSTEM
 DISK=$DISK
+INSTALL_KZSH=$INSTALL_KZSH
 EOF
 
 success "Stage 1 (Prep) complete."

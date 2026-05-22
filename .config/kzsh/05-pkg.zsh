@@ -6,6 +6,10 @@ kpkg() {
     echo "KASPERENOK PACKAGE HELPER"
     echo "usage: kpkg <install|update|check|search|clean> [packages|profile]"
     echo "profiles: core, dev, desktop, media, extra, all"
+    echo ""
+    echo "Distro-specific profiles:"
+    echo "  arch_*  - Arch Linux specific packages"
+    echo "  debian_* - Debian/Ubuntu specific packages"
     return 1
   }
 
@@ -25,9 +29,15 @@ kpkg() {
     for item in "${input_pkgs[@]}"; do
       case "$item" in
         core|dev|desktop|media|extra)
-          local prof_list=$(kcfg get "profile_$item")
+          # Try distro-specific profile first, then fallback to generic
+          local prof_name="profile_${KZSH_DISTRO}_${item}"
+          local prof_list=$(kcfg get "$prof_name")
+          if [[ -z "$prof_list" ]]; then
+            prof_name="profile_${item}"
+            prof_list=$(kcfg get "$prof_name")
+          fi
           if [[ -n "$prof_list" ]]; then
-            print -P "%F{39}📦 Loading profile: %B$item%b%f"
+            print -P "%F{39}📦 Loading profile: %B$item%b%f (%F{242}$KZSH_DISTRO%f)"
             final_pkgs+=($=prof_list)
           else
             print -P "%F{242}Profile $item is empty, skipping.%f"
@@ -35,7 +45,12 @@ kpkg() {
           ;;
         all)
           for p in core dev desktop media extra; do
-            local prof_list=$(kcfg get "profile_$p")
+            local prof_name="profile_${KZSH_DISTRO}_${p}"
+            local prof_list=$(kcfg get "$prof_name")
+            if [[ -z "$prof_list" ]]; then
+              prof_name="profile_${p}"
+              prof_list=$(kcfg get "$prof_name")
+            fi
             [[ -n "$prof_list" ]] && final_pkgs+=($=prof_list)
           done
           ;;

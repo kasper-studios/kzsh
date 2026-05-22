@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -15,7 +16,9 @@ error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
 success() { printf "${GREEN}[OK]${NC} %s\n" "$1"; }
 debug() { [[ "${DEBUG:-0}" == "1" ]] && printf "${CYAN}[DEBUG]${NC} %s\n" "$1"; }
 
-# Boot mode detection
+# ============================================
+# BOOT MODE DETECTION
+# ============================================
 detect_boot_mode() {
     if [[ -d /sys/firmware/efi ]]; then
         echo "uefi"
@@ -24,7 +27,6 @@ detect_boot_mode() {
     fi
 }
 
-# Checks
 check_boot_mode() {
     BOOT_MODE=$(detect_boot_mode)
     if [[ "$BOOT_MODE" == "uefi" ]]; then
@@ -34,6 +36,30 @@ check_boot_mode() {
     fi
 }
 
+# ============================================
+# DISTRIBUTION DETECTION & VALIDATION
+# ============================================
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        echo "$ID"
+    else
+        echo "unknown"
+    fi
+}
+
+# Check if distro is supported
+is_distro_supported() {
+    local distro="$1"
+    case "$distro" in
+        arch|manjaro|endeavouros|garuda) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# ============================================
+# NETWORK CHECK
+# ============================================
 check_internet() {
     info "Checking internet connection..."
     if ! ping -c 1 -W 3 archlinux.org &>/dev/null; then
@@ -41,6 +67,9 @@ check_internet() {
     fi
 }
 
+# ============================================
+# DISK VALIDATION
+# ============================================
 check_disk_size() {
     local disk="$1"
     local min_size_gb=8
@@ -53,7 +82,29 @@ check_disk_size() {
     debug "Disk size: ${size_gb}GB"
 }
 
-# Confirmation
+# Validate disk exists and is not system disk
+validate_disk() {
+    local disk="$1"
+    
+    if [[ ! -b "$disk" ]]; then
+        error "Disk not found: $disk"
+    fi
+    
+    # Check if disk is mounted
+    if mount | grep -q "^$disk"; then
+        error "Disk $disk is currently mounted"
+    fi
+    
+    # Check if disk is the root disk
+    local root_disk=$(findmnt -no SOURCE / | xargs lsblk -no PKNAME)
+    if [[ "$disk" == "/dev/$root_disk" ]] || [[ "$disk" == "$root_disk" ]]; then
+        error "Cannot install to the current system disk: $disk"
+    fi
+}
+
+# ============================================
+# CONFIRMATION
+# ============================================
 confirm_strict() {
     local target="$1"
     warn "THIS WILL ERASE ALL DATA ON ${target}!"
@@ -64,7 +115,9 @@ confirm_strict() {
     fi
 }
 
-# Helper to find partitions based on disk name and boot mode
+# ============================================
+# PARTITION HANDLING
+# ============================================
 get_partitions() {
     local disk="$1"
     local boot_mode="${2:-uefi}"
@@ -87,7 +140,9 @@ get_partitions() {
     fi
 }
 
-# Validate profile exists
+# ============================================
+# PROFILE VALIDATION
+# ============================================
 validate_profile() {
     local profile="$1"
     local script_dir="$2"
@@ -103,7 +158,21 @@ validate_profile() {
     info "Profile '${profile}' validated"
 }
 
-# Cleanup on error
+# Check if profile is compatible with current distro
+validate_profile_distro() {
+    local profile="$1"
+    local script_dir="$2"
+    local distro="$3"
+    
+    # For now, all profiles are Arch-only
+    if [[ "$distro" != "arch" ]]; then
+        warn "Profile '$profile' is designed for Arch Linux"
+    fi
+}
+
+# ============================================
+# CLEANUP
+# ============================================
 cleanup_on_error() {
     warn "Cleaning up after error..."
     if mountpoint -q /mnt; then
@@ -114,3 +183,24 @@ cleanup_on_error() {
 
 # Set trap for cleanup
 trap cleanup_on_error ERR
+
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
+# Check if package is installed
+package_installed() {
+    local pkg="$1"
+    if command -v pacman >/dev/null 2>&1; then
+        pacman -Q "$pkg" &>/dev/null
+    elif command -v apt >/dev/null 2>&1; then
+        dpkg -l "$pkg" &>/dev/null
+    else
+        return 1
+    fi
+}
+
+# Get available disk space in GB
+get_available_space() {
+    local mountpoint="$1"
+    df -BG "$mountpoint" 2>/dev/null | awk 'NR==2 {print $4}' | sed 's/G//'
+}

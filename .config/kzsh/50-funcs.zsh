@@ -34,10 +34,15 @@ kinstall() {
   echo ""
   print -P "%F{39}%B🚀 KZSH INSTALLER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  print -P "Detected distro: %F{cyan}$KZSH_DISTRO%f"
+  echo ""
 
-  # Phase 1: Mandatory Runtime
+  # Phase 1: Mandatory Runtime (distro-specific)
   echo "📦 Phase 1: Mandatory Runtime..."
-  local mand_pkgs=$(kcfg get profile_mandatory)
+  local mand_pkgs=$(kcfg get "profile_${KZSH_DISTRO}_mandatory")
+  if [[ -z "$mand_pkgs" ]]; then
+    mand_pkgs=$(kcfg get "profile_mandatory")
+  fi
   local to_install=()
   
   for p in ${=mand_pkgs}; do
@@ -59,13 +64,19 @@ kinstall() {
     [[ "$ans" == [yY] ]] && kzsh_install_fonts
   fi
 
-  # Phase 3: System Profiles
+  # Phase 3: System Profiles (distro-specific)
   local layers=(core dev desktop media extra)
   for layer in "${layers[@]}"; do
-    local pkgs=$(kcfg get "profile_$layer")
+    local prof_name="profile_${KZSH_DISTRO}_${layer}"
+    local pkgs=$(kcfg get "$prof_name")
+    if [[ -z "$pkgs" ]]; then
+      prof_name="profile_${layer}"
+      pkgs=$(kcfg get "$prof_name")
+    fi
+    
     if [[ -n "$pkgs" ]]; then
       echo ""
-      print -P "📦 Profile %F{cyan}$layer%f contains: $pkgs"
+      print -P "📦 Profile %F{cyan}$layer%f (%F{242}$KZSH_DISTRO%f) contains: $pkgs"
       read -q "ans?Install this profile? [y/N] "
       echo ""
       if [[ "$ans" == [yY] ]]; then

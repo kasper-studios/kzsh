@@ -10,7 +10,9 @@ if [[ "$KZSH_FIRST_RUN" == "yes" && -t 0 ]]; then
   print -P "%F{yellow}👋 Welcome to KASPERENOK ZSH!%f"
   print -P "It looks like this is your %F{cyan}first run%f on this system."
   echo ""
-  read -q "ans?Would you like to run the installer (kinstall)? [y/N] "
+  print -P "Detected distro: %F{cyan}$KZSH_DISTRO%f"
+  echo ""
+  read -q "ans?Would you like to install mandatory packages now? [y/N] "
   echo ""
   if [[ "$ans" == [yY] ]]; then
     export KZSH_TRIGGER_INSTALL="yes"
