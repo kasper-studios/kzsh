@@ -63,7 +63,7 @@ done
 # ============================================
 if [[ -z "$DISK" ]]; then
     info "Available disks:"
-    lsblk -d -o NAME,SIZE,MODEL,TYPE | grep disk
+    lsblk -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null | grep -E "disk|loop" || echo "No disks found"
     echo
     read -rp "Target disk (example: /dev/sda): " DISK
     read -rp "Hostname [$HOSTNAME]: " input_host
