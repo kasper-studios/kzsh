@@ -39,16 +39,22 @@ INSTALL_KZSH="yes"
 # ============================================
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --disk) DISK="$2"; shift 2 ;;
-        --hostname) HOSTNAME="$2"; shift 2 ;;
-        --user) USERNAME="$2"; shift 2 ;;
-        --profile) PROFILE="$2"; shift 2 ;;
-        --swap) SWAP_SIZE="$2"; shift 2 ;;
-        --fs) FILESYSTEM="$2"; shift 2 ;;
-        --bootloader) BOOTLOADER="$2"; shift 2 ;;
-        --kzsh) INSTALL_KZSH="$2"; shift 2 ;;
-        --debug) DEBUG=1; shift ;;
-        *) shift ;;
+        --disk|-disk) DISK="$2"; shift 2 ;;
+        --hostname|-hostname) HOSTNAME="$2"; shift 2 ;;
+        --user|-user) USERNAME="$2"; shift 2 ;;
+        --profile|-profile) PROFILE="$2"; shift 2 ;;
+        --swap|-swap) SWAP_SIZE="$2"; shift 2 ;;
+        --fs|-fs) FILESYSTEM="$2"; shift 2 ;;
+        --bootloader|-bootloader) BOOTLOADER="$2"; shift 2 ;;
+        --kzsh|-kzsh) INSTALL_KZSH="$2"; shift 2 ;;
+        --debug|-debug) DEBUG=1; shift ;;
+        *) 
+            # If it starts with -, it's an unknown option
+            if [[ "$1" == -* ]]; then
+                error "Unknown option: $1"
+            fi
+            shift
+            ;;
     esac
 done
 
