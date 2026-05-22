@@ -21,10 +21,17 @@ pacman -S --noconfirm \
     wireplumber \
     grim \
     slurp \
-    wl-clipboard
+    wl-clipboard \
+    firefox \
+    thunar \
+    file-roller \
+    xdg-user-dirs
 
 # Enable SDDM
 systemctl enable sddm
+
+# Create user directories
+xdg-user-dirs-update
 
 # Configure SDDM for Wayland session
 mkdir -p /etc/sddm.conf.d

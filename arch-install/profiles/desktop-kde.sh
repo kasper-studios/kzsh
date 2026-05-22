@@ -11,9 +11,14 @@ pacman -S --noconfirm \
     pipewire \
     pipewire-pulse \
     pipewire-alsa \
-    wireplumber
+    wireplumber \
+    firefox \
+    xdg-user-dirs
 
 # Enable SDDM
 systemctl enable sddm
+
+# Create user directories
+xdg-user-dirs-update
 
 echo "== Desktop KDE Plasma Profile Complete =="

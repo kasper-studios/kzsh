@@ -11,9 +11,14 @@ pacman -S --noconfirm \
     pipewire \
     pipewire-pulse \
     pipewire-alsa \
-    wireplumber
+    wireplumber \
+    firefox \
+    xdg-user-dirs
 
 # Enable GDM
 systemctl enable gdm
+
+# Create user directories
+xdg-user-dirs-update
 
 echo "== Desktop GNOME Profile Complete =="
