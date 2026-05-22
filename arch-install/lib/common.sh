@@ -95,10 +95,26 @@ validate_disk() {
         error "Disk $disk is currently mounted"
     fi
     
-    # Check if disk is the root disk
-    local root_disk=$(findmnt -no SOURCE / | xargs lsblk -no PKNAME)
-    if [[ "$disk" == "/dev/$root_disk" ]] || [[ "$disk" == "$root_disk" ]]; then
-        error "Cannot install to the current system disk: $disk"
+    # Check if disk is the root disk (avoid using lsblk to prevent errors)
+    local root_device=$(findmnt -no SOURCE / 2>/dev/null)
+    if [[ -n "$root_device" ]]; then
+        # Skip validation for airootfs (ArchISO live environment)
+        if [[ "$root_device" == *"airootfs"* ]]; then
+            debug "Running in ArchISO, skipping root disk validation"
+            return 0
+        fi
+        
+        local root_disk
+        # Use lsblk with error suppression
+        root_disk=$(lsblk -no PKNAME "$root_device" 2>/dev/null | head -n1 || true)
+        # Filter out any error messages
+        root_disk=$(echo "$root_disk" | grep -v "No such file" || true)
+        if [[ -n "$root_disk" && "$root_disk" != "" ]]; then
+            root_disk="/dev/$root_disk"
+            if [[ "$disk" == "$root_disk" ]]; then
+                error "Cannot install to the current system disk: $disk"
+            fi
+        fi
     fi
 }
 

@@ -63,7 +63,8 @@ done
 # ============================================
 if [[ -z "$DISK" ]]; then
     info "Available disks:"
-    lsblk -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null | grep -E "disk|loop" || echo "No disks found"
+    # Get list of block devices, filter out loops and show only disks
+    lsblk -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null | awk 'NR==1 || /disk/' || echo "No disks found"
     echo
     read -rp "Target disk (example: /dev/sda): " DISK
     read -rp "Hostname [$HOSTNAME]: " input_host
