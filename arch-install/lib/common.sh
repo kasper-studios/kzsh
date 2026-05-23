@@ -1,5 +1,4 @@
-﻿# common.sh - Shared functions for KZSH Arch installer
-set -uo pipefail
+﻿set -uo pipefail
 
 # Enable debug mode if DEBUG=1
 if [[ "${DEBUG:-0}" == "1" ]]; then
