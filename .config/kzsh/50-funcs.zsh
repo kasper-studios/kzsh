@@ -183,6 +183,9 @@ HELP
 
 # --- UPDATE (kupdate) ---
 kupdate() {
+  # Save current directory
+  local original_dir="$PWD"
+  
   print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
@@ -216,6 +219,7 @@ kupdate() {
   if ! git fetch origin main --quiet 2>/dev/null; then
     print -P "%F{red}✗ Failed to fetch updates%f"
     print -P "%F{242}Check your internet connection%f"
+    cd "$original_dir"
     return 1
   fi
   
@@ -224,6 +228,7 @@ kupdate() {
   
   if [[ "$local_commit" == "$remote_commit" ]]; then
     print -P "%F{32}✓ KZSH is already up to date!%f"
+    cd "$original_dir"
     return 0
   fi
   
@@ -237,19 +242,33 @@ kupdate() {
   git log --oneline HEAD..origin/main | head -5
   echo ""
   
-  read -q "?Update KZSH? [y/N] " || { echo ""; return 0; }
+  read -q "?Update KZSH? [y/N] " || { echo ""; cd "$original_dir"; return 0; }
   echo ""
   
   # Stash local changes if any
+  local has_changes=0
   if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     print -P "%F{yellow}⚠ Stashing local changes...%f"
     git stash push -m "Auto-stash before update $(date)" --quiet 2>/dev/null
+    has_changes=1
   fi
   
   # Pull updates
   print -P "%F{242}Pulling updates...%f"
   if git pull origin main --quiet 2>/dev/null; then
     print -P "%F{32}✓ KZSH updated successfully!%f"
+    
+    # Pop stash if we stashed changes
+    if [[ $has_changes -eq 1 ]]; then
+      echo ""
+      print -P "%F{yellow}⚠ Restoring your local changes...%f"
+      if git stash pop --quiet 2>/dev/null; then
+        print -P "%F{32}✓ Local changes restored%f"
+      else
+        print -P "%F{red}⚠ Conflicts detected, check 'git stash list'%f"
+      fi
+    fi
+    
     echo ""
     print -P "%F{39}Restart your shell to apply changes:%f"
     print -P "%F{242}  exec zsh%f"
@@ -260,6 +279,10 @@ kupdate() {
   else
     print -P "%F{red}✗ Failed to update KZSH%f"
     print -P "%F{242}Try manually: cd $repo_dir && git pull%f"
+    cd "$original_dir"
     return 1
   fi
+  
+  # Return to original directory
+  cd "$original_dir"
 }

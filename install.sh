@@ -36,10 +36,23 @@ fi
 REPO_DIR="$HOME/.kzsh-repo"
 
 if [[ -d "$REPO_DIR/.git" ]]; then
-  print_color "📂 Updating existing installation..."
+  print_color "📂 Checking for updates..."
   cd "$REPO_DIR"
-  git stash push -m "Auto-stash before update" --quiet 2>/dev/null || true
-  git pull origin main
+  
+  # Fetch updates
+  git fetch origin main --quiet 2>/dev/null || true
+  
+  # Check if updates available
+  local_commit=$(git rev-parse HEAD 2>/dev/null)
+  remote_commit=$(git rev-parse origin/main 2>/dev/null)
+  
+  if [[ "$local_commit" != "$remote_commit" ]]; then
+    print_color "📥 Updates available, pulling..."
+    git stash push -m "Auto-stash before update" --quiet 2>/dev/null || true
+    git pull origin main
+  else
+    print_color "✅ Already up to date!"
+  fi
 else
   print_color "📂 Cloning repository..."
   # Remove old repo if exists but not a git repo
