@@ -212,38 +212,6 @@ get_partitions() {
 }
 
 # ============================================
-# PROFILE VALIDATION
-# ============================================
-validate_profile() {
-    local profile="$1"
-    local script_dir="$2"
-    debug "validate_profile called with: $profile, script_dir: $script_dir"
-    
-    if [[ "$profile" == "none" ]]; then
-        return 0
-    fi
-    
-    if [[ ! -f "${script_dir}/profiles/${profile}.sh" ]]; then
-        error "Profile '${profile}' not found in ${script_dir}/profiles/"
-    fi
-    
-    info "Profile '${profile}' validated"
-}
-
-# Check if profile is compatible with current distro
-validate_profile_distro() {
-    local profile="$1"
-    local script_dir="$2"
-    local distro="$3"
-    debug "validate_profile_distro called with: $profile, $script_dir, $distro"
-    
-    # For now, all profiles are Arch-only
-    if [[ "$distro" != "arch" ]]; then
-        warn "Profile '$profile' is designed for Arch Linux"
-    fi
-}
-
-# ============================================
 # CLEANUP
 # ============================================
 cleanup_on_error() {

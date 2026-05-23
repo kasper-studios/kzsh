@@ -43,7 +43,6 @@ check_internet
 DISK=""
 HOSTNAME="ponosik"
 USERNAME="kasperenok"
-PROFILE="desktop-sddm-niri"
 SWAP_SIZE=""
 FILESYSTEM="btrfs"
 BOOTLOADER="auto"
@@ -58,7 +57,6 @@ while [[ $# -gt 0 ]]; do
         --disk|-disk) DISK="$2"; shift 2 ;;
         --hostname|-hostname) HOSTNAME="$2"; shift 2 ;;
         --user|-user) USERNAME="$2"; shift 2 ;;
-        --profile|-profile) PROFILE="$2"; shift 2 ;;
         --swap|-swap) SWAP_SIZE="$2"; shift 2 ;;
         --fs|-fs) FILESYSTEM="$2"; shift 2 ;;
         --bootloader|-bootloader) BOOTLOADER="$2"; shift 2 ;;
@@ -75,7 +73,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-info "Arguments parsed: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME, PROFILE=$PROFILE"
+info "Arguments parsed: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME"
 
 # ============================================
 # INTERACTIVE MODE
@@ -116,10 +114,6 @@ if [[ "$FILESYSTEM" != "btrfs" && "$FILESYSTEM" != "ext4" ]]; then
     error "Invalid filesystem: $FILESYSTEM (must be btrfs or ext4)"
 fi
 
-# Validate profile
-validate_profile "$PROFILE" "$SCRIPT_DIR"
-validate_profile_distro "$PROFILE" "$SCRIPT_DIR" "$KZSH_DISTRO"
-
 # Normalize KZSH installation option
 INSTALL_KZSH=$(echo "$INSTALL_KZSH" | tr '[:upper:]' '[:lower:]')
 if [[ "$INSTALL_KZSH" =~ ^(y|yes|1|true)$ ]]; then
@@ -159,7 +153,6 @@ info "  Bootloader: $BOOTLOADER"
 info "  Filesystem: $FILESYSTEM"
 info "  Hostname: $HOSTNAME"
 info "  Username: $USERNAME"
-info "  Profile: $PROFILE"
 [[ -n "$SWAP_SIZE" ]] && info "  Swap: ${SWAP_SIZE}MB"
 info "  Install KZSH: $INSTALL_KZSH"
 
@@ -396,6 +389,6 @@ EOF
 info "Installation metadata saved"
 
 success "Stage 1 (Prep) complete."
-info "Now run: arch-chroot $INSTALL_ROOT /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --profile $PROFILE"
+info "Now run: arch-chroot $INSTALL_ROOT /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --kzsh $INSTALL_KZSH"
 
 info "prep.sh completed successfully"

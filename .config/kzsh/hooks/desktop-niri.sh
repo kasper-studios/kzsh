@@ -3,19 +3,14 @@
 
 echo "Configuring Niri desktop environment..."
 
-# Create Wayland session desktop entry for SDDM
-if [[ ! -f /usr/share/wayland-sessions/niri.desktop ]]; then
-    echo "Creating Niri desktop entry..."
-    sudo mkdir -p /usr/share/wayland-sessions
-    sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null << 'EOF'
-[Desktop Entry]
-Name=Niri
-Comment=Niri Wayland Compositor
-Exec=niri-session
-Type=Application
-DesktopNames=niri
-EOF
-fi
+# Disable display managers (we'll use KZSH session manager)
+for dm in sddm gdm lightdm; do
+    if systemctl is-enabled "$dm" &>/dev/null; then
+        echo "Disabling $dm (using KZSH session manager instead)..."
+        sudo systemctl disable "$dm" 2>/dev/null || true
+        sudo systemctl stop "$dm" 2>/dev/null || true
+    fi
+done
 
 # Create default Niri config if it doesn't exist
 if [[ ! -f ~/.config/niri/config.kdl ]]; then
@@ -110,6 +105,9 @@ if ! systemctl is-enabled sddm &>/dev/null; then
     sudo systemctl enable sddm
 fi
 
+    mkdir -p ~/Pictures/Screenshots
+fi
+
 # Add user to video and input groups if not already
 if ! groups | grep -q video; then
     echo "Adding user to video group..."
@@ -123,9 +121,19 @@ fi
 
 echo "✓ Niri desktop environment configured successfully!"
 echo ""
+echo "KZSH Session Manager is now enabled!"
+echo ""
 echo "Next steps:"
 echo "  1. Reboot your system: sudo reboot"
-echo "  2. Select 'Niri' session in SDDM login screen"
-echo "  3. Use Super+T to open terminal, Super+D for app launcher"
+echo "  2. After login, KZSH will automatically show session selection"
+echo "  3. Select Niri to start the compositor"
+echo ""
+echo "Keybinds:"
+echo "  Super+T - Open terminal (Alacritty)"
+echo "  Super+D - App launcher (Fuzzel)"
+echo "  Super+Q - Close window"
+echo "  Super+Shift+E - Exit Niri"
+echo ""
+echo "To disable auto-start: kcfg set auto_start_session no"
 echo ""
 echo "Note: You may need to log out and log back in for group changes to take effect."

@@ -20,14 +20,12 @@ fi
 # Default values
 HOSTNAME="kasarch"
 USERNAME="kasper"
-PROFILE="base"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --hostname) HOSTNAME="$2"; shift 2 ;;
         --user) USERNAME="$2"; shift 2 ;;
-        --profile) PROFILE="$2"; shift 2 ;;
         --kzsh) INSTALL_KZSH="$2"; shift 2 ;;
         --debug) DEBUG=1; shift ;;
         *) shift ;;
@@ -40,7 +38,6 @@ info "  Bootloader: $BOOTLOADER"
 info "  Filesystem: $FILESYSTEM"
 info "  Hostname: $HOSTNAME"
 info "  Username: $USERNAME"
-info "  Profile: $PROFILE"
 info "  Install KZSH: $INSTALL_KZSH"
 
 info "Setting timezone and locale..."
@@ -139,16 +136,6 @@ mkinitcpio -P
 info "Enabling services..."
 systemctl enable NetworkManager
 
-# Run profile if exists
-if [[ "$PROFILE" != "none" ]]; then
-    if [[ -f "${SCRIPT_DIR}/profiles/${PROFILE}.sh" ]]; then
-        info "Running profile: $PROFILE"
-        bash "${SCRIPT_DIR}/profiles/${PROFILE}.sh"
-    else
-        warn "Profile ${PROFILE} not found, skipping."
-    fi
-fi
-
 # ============================================
 # INSTALL KZSH AFTER POST-INSTALL
 # ============================================
@@ -158,46 +145,16 @@ if [[ "$INSTALL_KZSH" == "yes" || "$INSTALL_KZSH" == "y" ]]; then
     info "============================================"
     
     # Install base dependencies if missing
-    if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1; then
-        info "Installing base dependencies (git, zsh)..."
-        pacman -S --noconfirm git zsh
+    if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+        info "Installing base dependencies (git, zsh, curl)..."
+        pacman -S --noconfirm git zsh curl
     fi
     
-    # Clone and install KZSH
-    info "Cloning KZSH repository..."
-    tmp_dir=$(mktemp -d)
-    git clone --depth 1 "https://github.com/kasper-studios/kzsh.git" "$tmp_dir"
+    # Run install.sh as the created user
+    info "Running KZSH installer for user $USERNAME..."
+    su - "$USERNAME" -c 'curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash'
     
-    info "Installing KZSH to $HOME/.config/kzsh..."
-    mkdir -p "$HOME/.config/kzsh"
-    cp -r "$tmp_dir/.config/kzsh/." "$HOME/.config/kzsh/"
-    
-    # Ensure entrypoint in .zshrc
-    if [[ ! -f "$HOME/.zshrc" ]]; then
-        touch "$HOME/.zshrc"
-    fi
-    if ! grep -q "kzsh.zsh" "$HOME/.zshrc"; then
-        cat >> "$HOME/.zshrc" << EOF
-
-# KASPERENOK ZSH Entrypoint
-export KZSH_DIR="\$HOME/.config/kzsh"
-[[ -f "\$KZSH_DIR/kzsh.zsh" ]] && source "\$KZSH_DIR/kzsh.zsh"
-EOF
-    fi
-    
-    # Set first_run flag
-    sed -i 's/first_run: no/first_run: yes/g' "$HOME/.config/kzsh/config.yaml" 2>/dev/null || \
-    echo "first_run: yes" >> "$HOME/.config/kzsh/config.yaml"
-    
-    # Change shell to zsh if not already
-    if [[ "$SHELL" != *"zsh"* ]]; then
-        info "Changing default shell to ZSH..."
-        chsh -s "$(command -v zsh)" "$USERNAME"
-    fi
-    
-    rm -rf "$tmp_dir"
-    
-    success "KZSH installed successfully!"
+    success "KZSH installed successfully for user $USERNAME!"
     info "Next shell launch will show the KZSH banner and install mandatory packages."
 else
     info "Skipping KZSH installation (set --kzsh yes to enable)"

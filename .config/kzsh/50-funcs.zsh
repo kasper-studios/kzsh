@@ -179,3 +179,69 @@ SYSTEM:
   kinstall      -> run full setup
 HELP
 }
+
+
+# --- UPDATE (kupdate) ---
+kupdate() {
+  print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  if [[ ! -d "${KZSH_DIR}/.git" ]]; then
+    print -P "%F{red}✗ Not a git repository%f"
+    print -P "%F{242}KZSH was not installed via git clone%f"
+    return 1
+  fi
+  
+  cd "${KZSH_DIR}" || return 1
+  
+  print -P "%F{242}Fetching updates from GitHub...%f"
+  if ! git fetch origin main --quiet 2>/dev/null; then
+    print -P "%F{red}✗ Failed to fetch updates%f"
+    print -P "%F{242}Check your internet connection%f"
+    return 1
+  fi
+  
+  local local_commit=$(git rev-parse HEAD 2>/dev/null)
+  local remote_commit=$(git rev-parse origin/main 2>/dev/null)
+  
+  if [[ "$local_commit" == "$remote_commit" ]]; then
+    print -P "%F{32}✓ KZSH is already up to date!%f"
+    return 0
+  fi
+  
+  print -P "%F{39}Updates available!%f"
+  print -P "%F{242}Local:  $local_commit%f"
+  print -P "%F{242}Remote: $remote_commit%f"
+  echo ""
+  
+  # Show what changed
+  print -P "%F{39}Changes:%f"
+  git log --oneline HEAD..origin/main | head -5
+  echo ""
+  
+  read -q "?Update KZSH? [y/N] " || { echo ""; return 0; }
+  echo ""
+  
+  # Stash local changes if any
+  if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+    print -P "%F{yellow}⚠ Stashing local changes...%f"
+    git stash push -m "Auto-stash before update $(date)" --quiet 2>/dev/null
+  fi
+  
+  # Pull updates
+  print -P "%F{242}Pulling updates...%f"
+  if git pull origin main --quiet 2>/dev/null; then
+    print -P "%F{32}✓ KZSH updated successfully!%f"
+    echo ""
+    print -P "%F{39}Restart your shell to apply changes:%f"
+    print -P "%F{242}  exec zsh%f"
+    echo ""
+    
+    # Update last check time
+    echo "$(date +%s)" > "${KZSH_DIR}/.last_update"
+  else
+    print -P "%F{red}✗ Failed to update KZSH%f"
+    print -P "%F{242}Try manually: cd ~/.config/kzsh && git pull%f"
+    return 1
+  fi
+}

@@ -1,6 +1,8 @@
 # KASPERENOK ZSH Configuration
 bun_default: yes
 first_run: yes
+auto_start_session: yes  # Auto-start desktop session on TTY1
+auto_update: yes  # Auto-update KZSH from GitHub (once per day)
 
 # ============================================
 # DISTRIBUTION-SPECIFIC CONFIGURATION
@@ -9,10 +11,12 @@ first_run: yes
 
 # --- ARCH LINUX PROFILES ---
 profile_arch_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig networkmanager
-profile_arch_core: fastfetch btop
-profile_arch_dev: nodejs docker docker-compose base-devel
-profile_arch_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp vulkan-radeon brightnessctl
-profile_arch_media: chromium firefox discord mpv
+profile_arch_core: fastfetch btop tree rsync wget htop nano
+profile_arch_dev: nodejs npm docker docker-compose base-devel python python-pip rust go neovim
+profile_arch_desktop_gnome: gnome gnome-extra gdm
+profile_arch_desktop_kde: plasma-meta kde-applications sddm
+profile_arch_desktop_niri: niri sddm waybar alacritty mako fuzzel swaybg xorg-xwayland qt6-wayland qt5-wayland pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs
+profile_arch_media: chromium firefox discord mpv vlc gimp inkscape
 profile_arch_extra: steam wine obs-studio
 
 # --- DEBIAN/UBUNTU PROFILES ---
@@ -27,8 +31,10 @@ profile_debian_extra: steam-installer wine obs-studio
 profile_mandatory: curl git zsh bat lsd ripgrep fzf zoxide unzip neovim fontconfig networkmanager
 
 # --- OPTIONAL convenience layers: installed via 'kpkg install <profile>' ---
-profile_core: fastfetch btop
-profile_dev: nodejs docker docker-compose build-essential
-profile_desktop: niri alacritty fuzzel waybar mako wl-clipboard xdg-desktop-portal xdg-desktop-portal-gtk pipewire pipewire-pulse wireplumber grim slurp vulkan-radeon brightnessctl
-profile_media: chromium ayogram-desktop discord mpv
+profile_core: fastfetch btop tree rsync wget htop nano
+profile_dev: nodejs npm docker docker-compose build-essential python python-pip rust go neovim
+profile_desktop_gnome: gnome gnome-extra gdm
+profile_desktop_kde: plasma-meta kde-applications sddm
+profile_desktop_niri: niri sddm waybar alacritty mako fuzzel swaybg xorg-xwayland qt6-wayland qt5-wayland pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs
+profile_media: chromium firefox discord mpv vlc gimp inkscape
 profile_extra: steam wine obs-studio

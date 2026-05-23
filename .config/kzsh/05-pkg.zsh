@@ -26,21 +26,27 @@ kpkg() {
 
   # Profile handling
   if [[ "$action" == "install" ]]; then
+    local installed_profiles=()  # Track which profiles were installed
+    
     for item in "${input_pkgs[@]}"; do
       case "$item" in
-        core|dev|desktop|media|extra)
+        core|dev|desktop|media|extra|desktop-*|desktop_*)
+          # Normalize profile name (replace _ with -)
+          local normalized_item="${item//_/-}"
+          
           # Try distro-specific profile first, then fallback to generic
-          local prof_name="profile_${KZSH_DISTRO}_${item}"
+          local prof_name="profile_${KZSH_DISTRO}_${normalized_item}"
           local prof_list=$(kcfg get "$prof_name")
           if [[ -z "$prof_list" ]]; then
-            prof_name="profile_${item}"
+            prof_name="profile_${normalized_item}"
             prof_list=$(kcfg get "$prof_name")
           fi
           if [[ -n "$prof_list" ]]; then
-            print -P "%F{39}📦 Loading profile: %B$item%b%f (%F{242}$KZSH_DISTRO%f)"
+            print -P "%F{39}📦 Loading profile: %B$normalized_item%b%f (%F{242}$KZSH_DISTRO%f)"
             final_pkgs+=($=prof_list)
+            installed_profiles+=("$normalized_item")
           else
-            print -P "%F{242}Profile $item is empty, skipping.%f"
+            print -P "%F{242}Profile $normalized_item is empty, skipping.%f"
           fi
           ;;
         all)
@@ -130,4 +136,15 @@ kpkg() {
       return 1
       ;;
   esac
+  
+  # Run post-install hooks for profiles
+  if [[ "$action" == "install" && ${#installed_profiles[@]} -gt 0 ]]; then
+    for profile in "${installed_profiles[@]}"; do
+      local hook_file="${KZSH_DIR}/hooks/${profile}.sh"
+      if [[ -f "$hook_file" && -r "$hook_file" ]]; then
+        print -P "\n%F{39}🔧 Running post-install hook for %B$profile%b...%f"
+        bash "$hook_file"
+      fi
+    done
+  fi
 }
