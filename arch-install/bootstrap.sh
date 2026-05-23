@@ -24,7 +24,24 @@ if [[ -d "$INSTALL_ROOT/root/arch-install" ]] && [[ -f "$INSTALL_ROOT/etc/fstab"
     echo "  2) Start fresh installation (will erase everything)"
     echo "  3) Exit"
     echo ""
-    read -p "Choose option [1-3]: " choice
+    
+    # Use /dev/tty for input when stdin is redirected
+    if [[ -t 0 ]]; then
+        read -p "Choose option [1-3]: " choice
+    elif [[ -e /dev/tty ]]; then
+        read -p "Choose option [1-3]: " choice < /dev/tty
+    else
+        echo ">> Non-interactive mode detected. Use --force to start fresh installation."
+        echo ">> Or run post.sh manually:"
+        echo ""
+        echo "   arch-chroot $INSTALL_ROOT /root/arch-install/post.sh \\"
+        echo "     --hostname YOUR_HOSTNAME \\"
+        echo "     --user YOUR_USERNAME \\"
+        echo "     --profile YOUR_PROFILE \\"
+        echo "     --kzsh yes"
+        echo ""
+        exit 1
+    fi
     
     case $choice in
         1)
