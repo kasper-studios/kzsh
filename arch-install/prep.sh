@@ -7,7 +7,7 @@ if [[ "${DEBUG:-0}" == "1" ]]; then
 fi
 
 # Source common functions
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ ! -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
     echo "ERROR: Dependencies not found. Please use the bootstrap script for remote execution:"
