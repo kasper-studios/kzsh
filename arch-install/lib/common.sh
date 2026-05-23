@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+﻿# common.sh - Shared functions for KZSH Arch installer
 set -uo pipefail
 
 # Enable debug mode if DEBUG=1
