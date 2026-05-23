@@ -282,16 +282,24 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     fi
 
     info "Unmounting and remounting with subvolumes..."
-    umount "$INSTALL_ROOT"
+    umount "$INSTALL_ROOT" || error "Failed to unmount root partition"
     
+    info "Mounting @ subvolume..."
     mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT" || error "Failed to mount @ subvolume"
-    mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
+    
+    info "Creating mount point directories..."
+    mkdir -p "$INSTALL_ROOT/home" || error "Failed to create /home directory"
+    mkdir -p "$INSTALL_ROOT/var/log" || error "Failed to create /var/log directory"
+    mkdir -p "$INSTALL_ROOT/var/cache/pacman/pkg" || error "Failed to create /var/cache/pacman/pkg directory"
+    
+    info "Mounting subvolumes..."
     mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home" || error "Failed to mount @home subvolume"
     mount -o subvol=@log,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/log" || error "Failed to mount @log subvolume"
     mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/cache/pacman/pkg" || error "Failed to mount @pkg subvolume"
 
     if [[ -n "$SWAP_SIZE" ]]; then
-        mkdir -p "$INSTALL_ROOT/swap"
+        info "Setting up swap subvolume..."
+        mkdir -p "$INSTALL_ROOT/swap" || error "Failed to create /swap directory"
         mount -o subvol=@swap,noatime "$ROOT_PART" "$INSTALL_ROOT/swap" || error "Failed to mount @swap subvolume"
         
         info "Creating swap file on BTRFS..."
