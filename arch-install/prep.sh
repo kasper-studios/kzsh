@@ -204,6 +204,15 @@ if mountpoint -q /mnt 2>/dev/null; then
     umount /mnt 2>/dev/null || true
 fi
 
+# Remove /mnt directory if it exists (ArchISO may have it as a directory)
+if [[ -d /mnt && ! -L /mnt ]]; then
+    info "Removing /mnt directory..."
+    rmdir /mnt 2>/dev/null || rm -rf /mnt 2>/dev/null || true
+fi
+
+# Create fresh /mnt directory
+mkdir -p /mnt
+
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS subvolumes..."
     mount "$ROOT_PART" /mnt
