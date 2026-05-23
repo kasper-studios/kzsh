@@ -216,9 +216,13 @@ fi
 # Create fresh install root directory
 mkdir -p "$INSTALL_ROOT"
 
+# Mount the root partition to install root
+info "Mounting root partition to $INSTALL_ROOT..."
+mount "$ROOT_PART" "$INSTALL_ROOT"
+info "Root partition mounted to $INSTALL_ROOT"
+
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS subvolumes..."
-    mount "$ROOT_PART" "$INSTALL_ROOT"
     btrfs subvolume create "$INSTALL_ROOT/@"
     btrfs subvolume create "$INSTALL_ROOT/@home"
     btrfs subvolume create "$INSTALL_ROOT/@log"
@@ -226,9 +230,10 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     if [[ -n "$SWAP_SIZE" ]]; then
         btrfs subvolume create "$INSTALL_ROOT/@swap"
     fi
-    umount "$INSTALL_ROOT"
 
-    info "Mounting BTRFS subvolumes..."
+    info "Unmounting and remounting with subvolumes..."
+    umount "$INSTALL_ROOT"
+    
     mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT"
     mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
     mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home"
