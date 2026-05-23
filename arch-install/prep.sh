@@ -151,6 +151,20 @@ info "Confirmation passed"
 
 info "Partitioning $DISK..."
 
+# Check if disk has existing partitions and remove them
+if lsblk -no NAME "$DISK" | grep -q "^${DISK##*/}"; then
+    info "Existing partitions found on $DISK, removing..."
+    # Remove all partitions from the disk
+    for part in $(lsblk -no NAME "$DISK"); do
+        if [[ "$part" != "${DISK##*/}" ]]; then
+            info "Removing partition: /dev/$part"
+            rm -f "/dev/$part" 2>/dev/null || true
+        fi
+    done
+    # Wipe partition table
+    wipefs -a "$DISK" 2>/dev/null || true
+fi
+
 if [[ "$BOOT_MODE" == "uefi" ]]; then
     # UEFI: EFI System Partition + Root
     info "Creating GPT label and partitions for UEFI..."
@@ -184,6 +198,12 @@ else
 fi
 info "Root partition formatted"
 
+# Clean up /mnt if it exists (ArchISO may have it mounted as squashfs)
+if mountpoint -q /mnt 2>/dev/null; then
+    info "Unmounting /mnt (ArchISO squashfs)..."
+    umount /mnt 2>/dev/null || true
+fi
+
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS subvolumes..."
     mount "$ROOT_PART" /mnt
@@ -206,9 +226,8 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     if [[ -n "$SWAP_SIZE" ]]; then
         mkdir -p /mnt/swap
         mount -o subvol=@swap,noatime "$ROOT_PART" /mnt/swap
+        # Create swap file without chattr (BTRFS doesn't support it)
         truncate -s 0 /mnt/swap/swapfile
-        chattr +C /mnt/swap/swapfile
-        btrfs property set /mnt/swap/swapfile compression none
         dd if=/dev/zero of=/mnt/swap/swapfile bs=1M count="$SWAP_SIZE" status=progress
         chmod 600 /mnt/swap/swapfile
         mkswap /mnt/swap/swapfile
