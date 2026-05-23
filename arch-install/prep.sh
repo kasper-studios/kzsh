@@ -198,61 +198,64 @@ else
 fi
 info "Root partition formatted"
 
-# Clean up /mnt if it exists (ArchISO may have it mounted as squashfs)
-if mountpoint -q /mnt 2>/dev/null; then
-    info "Unmounting /mnt (ArchISO squashfs)..."
-    umount /mnt 2>/dev/null || true
+# Use /install-root instead of /mnt to avoid conflict with ArchISO squashfs
+INSTALL_ROOT="/install-root"
+
+# Clean up install root if it exists
+if mountpoint -q "$INSTALL_ROOT" 2>/dev/null; then
+    info "Unmounting $INSTALL_ROOT..."
+    umount "$INSTALL_ROOT" 2>/dev/null || true
 fi
 
-# Remove /mnt directory if it exists (ArchISO may have it as a directory)
-if [[ -d /mnt && ! -L /mnt ]]; then
-    info "Removing /mnt directory..."
-    rmdir /mnt 2>/dev/null || rm -rf /mnt 2>/dev/null || true
+# Remove install root directory if it exists
+if [[ -d "$INSTALL_ROOT" && ! -L "$INSTALL_ROOT" ]]; then
+    info "Removing $INSTALL_ROOT directory..."
+    rmdir "$INSTALL_ROOT" 2>/dev/null || rm -rf "$INSTALL_ROOT" 2>/dev/null || true
 fi
 
-# Create fresh /mnt directory
-mkdir -p /mnt
+# Create fresh install root directory
+mkdir -p "$INSTALL_ROOT"
 
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS subvolumes..."
-    mount "$ROOT_PART" /mnt
-    btrfs subvolume create /mnt/@
-    btrfs subvolume create /mnt/@home
-    btrfs subvolume create /mnt/@log
-    btrfs subvolume create /mnt/@pkg
+    mount "$ROOT_PART" "$INSTALL_ROOT"
+    btrfs subvolume create "$INSTALL_ROOT/@"
+    btrfs subvolume create "$INSTALL_ROOT/@home"
+    btrfs subvolume create "$INSTALL_ROOT/@log"
+    btrfs subvolume create "$INSTALL_ROOT/@pkg"
     if [[ -n "$SWAP_SIZE" ]]; then
-        btrfs subvolume create /mnt/@swap
+        btrfs subvolume create "$INSTALL_ROOT/@swap"
     fi
-    umount /mnt
+    umount "$INSTALL_ROOT"
 
     info "Mounting BTRFS subvolumes..."
-    mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" /mnt
-    mkdir -p /mnt/{home,var/log,var/cache/pacman/pkg}
-    mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" /mnt/home
-    mount -o subvol=@log,compress=zstd,noatime "$ROOT_PART" /mnt/var/log
-    mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PART" /mnt/var/cache/pacman/pkg
+    mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT"
+    mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
+    mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home"
+    mount -o subvol=@log,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/log"
+    mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/cache/pacman/pkg"
 
     if [[ -n "$SWAP_SIZE" ]]; then
-        mkdir -p /mnt/swap
-        mount -o subvol=@swap,noatime "$ROOT_PART" /mnt/swap
+        mkdir -p "$INSTALL_ROOT/swap"
+        mount -o subvol=@swap,noatime "$ROOT_PART" "$INSTALL_ROOT/swap"
         # Create swap file without chattr (BTRFS doesn't support it)
-        truncate -s 0 /mnt/swap/swapfile
-        dd if=/dev/zero of=/mnt/swap/swapfile bs=1M count="$SWAP_SIZE" status=progress
-        chmod 600 /mnt/swap/swapfile
-        mkswap /mnt/swap/swapfile
-        swapon /mnt/swap/swapfile
+        truncate -s 0 "$INSTALL_ROOT/swap/swapfile"
+        dd if=/dev/zero of="$INSTALL_ROOT/swap/swapfile" bs=1M count="$SWAP_SIZE" status=progress
+        chmod 600 "$INSTALL_ROOT/swap/swapfile"
+        mkswap "$INSTALL_ROOT/swap/swapfile"
+        swapon "$INSTALL_ROOT/swap/swapfile"
     fi
 else
     info "Mounting ext4 filesystem..."
-    mount "$ROOT_PART" /mnt
-    mkdir -p /mnt/{home,var/log,var/cache/pacman/pkg}
+    mount "$ROOT_PART" "$INSTALL_ROOT"
+    mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
     
     if [[ -n "$SWAP_SIZE" ]]; then
         info "Creating swap file..."
-        dd if=/dev/zero of=/mnt/swapfile bs=1M count="$SWAP_SIZE" status=progress
-        chmod 600 /mnt/swapfile
-        mkswap /mnt/swapfile
-        swapon /mnt/swapfile
+        dd if=/dev/zero of="$INSTALL_ROOT/swapfile" bs=1M count="$SWAP_SIZE" status=progress
+        chmod 600 "$INSTALL_ROOT/swapfile"
+        mkswap "$INSTALL_ROOT/swapfile"
+        swapon "$INSTALL_ROOT/swapfile"
     fi
 fi
 
@@ -261,8 +264,8 @@ info "Filesystem mounted"
 # Mount boot partition for UEFI
 if [[ "$BOOT_MODE" == "uefi" && -n "$BOOT_PART" ]]; then
     info "Mounting EFI partition..."
-    mkdir -p /mnt/boot
-    mount "$BOOT_PART" /mnt/boot
+    mkdir -p "$INSTALL_ROOT/boot"
+    mount "$BOOT_PART" "$INSTALL_ROOT/boot"
 fi
 
 info "Boot partition mounted"
@@ -297,21 +300,21 @@ fi
 
 info "Base packages: $BASE_PACKAGES"
 info "Running pacstrap..."
-pacstrap /mnt $BASE_PACKAGES
+pacstrap "$INSTALL_ROOT" $BASE_PACKAGES
 info "Pacstrap completed"
 
 info "Generating fstab..."
-genfstab -U /mnt >> /mnt/etc/fstab
+genfstab -U "$INSTALL_ROOT" >> "$INSTALL_ROOT/etc/fstab"
 info "Fstab generated"
 
 # Copy the installation folder to the new system for the second stage
-info "Copying installation folder to /mnt/root/arch-install..."
-cp -r "${SCRIPT_DIR}" /mnt/root/arch-install
+info "Copying installation folder to $INSTALL_ROOT/root/arch-install..."
+cp -r "${SCRIPT_DIR}" "$INSTALL_ROOT/root/arch-install"
 info "Installation folder copied"
 
 # Save installation metadata for post.sh
 info "Saving installation metadata..."
-cat > /mnt/root/arch-install/.install-meta << EOF
+cat > "$INSTALL_ROOT/root/arch-install/.install-meta << EOF
 BOOT_MODE=$BOOT_MODE
 BOOTLOADER=$BOOTLOADER
 FILESYSTEM=$FILESYSTEM
@@ -321,6 +324,6 @@ EOF
 info "Installation metadata saved"
 
 success "Stage 1 (Prep) complete."
-info "Now run: arch-chroot /mnt /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --profile $PROFILE"
+info "Now run: arch-chroot $INSTALL_ROOT /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --profile $PROFILE"
 
 info "prep.sh completed successfully"
