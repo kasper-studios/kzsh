@@ -10,7 +10,7 @@ fi
 # This script clones the full repository and starts the installation.
 
 REPO_URL="https://github.com/kasper-studios/kzsh.git"
-INSTALL_ROOT="/install-root"
+INSTALL_ROOT="/mnt"
 
 echo "== Arch Installer Bootstrap =="
 

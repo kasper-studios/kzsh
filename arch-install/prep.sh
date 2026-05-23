@@ -261,8 +261,8 @@ else
 fi
 info "Root partition formatted"
 
-# Use /install-root instead of /mnt to avoid conflict with ArchISO squashfs
-INSTALL_ROOT="/install-root"
+# Use /mnt instead of /install-root to avoid conflict with ArchISO squashfs
+INSTALL_ROOT="/mnt"
 
 validate_and_prepare_install_root "$INSTALL_ROOT"
 
