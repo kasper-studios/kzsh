@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
+
+# Enable debug mode if DEBUG=1
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    set -x
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -20,14 +25,18 @@ debug() { [[ "${DEBUG:-0}" == "1" ]] && printf "${CYAN}[DEBUG]${NC} %s\n" "$1"; 
 # BOOT MODE DETECTION
 # ============================================
 detect_boot_mode() {
+    debug "detect_boot_mode called"
     if [[ -d /sys/firmware/efi ]]; then
+        debug "UEFI directory found"
         echo "uefi"
     else
+        debug "UEFI directory not found, assuming BIOS"
         echo "bios"
     fi
 }
 
 check_boot_mode() {
+    debug "check_boot_mode called"
     BOOT_MODE=$(detect_boot_mode)
     if [[ "$BOOT_MODE" == "uefi" ]]; then
         info "Detected UEFI boot mode"
@@ -40,10 +49,13 @@ check_boot_mode() {
 # DISTRIBUTION DETECTION & VALIDATION
 # ============================================
 detect_distro() {
+    debug "detect_distro called"
     if [[ -f /etc/os-release ]]; then
         source /etc/os-release
+        debug "Detected distro: $ID"
         echo "$ID"
     else
+        debug "No os-release found, returning unknown"
         echo "unknown"
     fi
 }
@@ -51,9 +63,14 @@ detect_distro() {
 # Check if distro is supported
 is_distro_supported() {
     local distro="$1"
+    debug "is_distro_supported called with: $distro"
     case "$distro" in
-        arch|manjaro|endeavouros|garuda) return 0 ;;
-        *) return 1 ;;
+        arch|manjaro|endeavouros|garuda) 
+            debug "Distro $distro is supported"
+            return 0 ;;
+        *) 
+            debug "Distro $distro is not supported"
+            return 1 ;;
     esac
 }
 
@@ -61,10 +78,12 @@ is_distro_supported() {
 # NETWORK CHECK
 # ============================================
 check_internet() {
+    debug "check_internet called"
     info "Checking internet connection..."
     if ! ping -c 1 -W 3 archlinux.org &>/dev/null; then
         error "No internet connection detected."
     fi
+    debug "check_internet passed"
 }
 
 # ============================================
@@ -73,7 +92,11 @@ check_internet() {
 check_disk_size() {
     local disk="$1"
     local min_size_gb=8
-    local size_bytes=$(blockdev --getsize64 "$disk")
+    debug "check_disk_size called with: $disk"
+    local size_bytes
+    size_bytes=$(blockdev --getsize64 "$disk" 2>/dev/null) || {
+        error "Failed to get disk size for $disk"
+    }
     local size_gb=$((size_bytes / 1024 / 1024 / 1024))
     
     if [[ $size_gb -lt $min_size_gb ]]; then
@@ -85,6 +108,7 @@ check_disk_size() {
 # Validate disk exists and is not system disk
 validate_disk() {
     local disk="$1"
+    debug "validate_disk called with: $disk"
     
     if [[ ! -b "$disk" ]]; then
         error "Disk not found: $disk"
@@ -116,6 +140,8 @@ validate_disk() {
             fi
         fi
     fi
+    
+    debug "validate_disk passed for: $disk"
 }
 
 # ============================================
@@ -123,12 +149,14 @@ validate_disk() {
 # ============================================
 confirm_strict() {
     local target="$1"
+    debug "confirm_strict called with: $target"
     warn "THIS WILL ERASE ALL DATA ON ${target}!"
     echo -n "Type 'ERASE' to continue: "
     read -r confirmation
     if [[ "$confirmation" != "ERASE" ]]; then
         error "Aborted by user."
     fi
+    debug "confirm_strict passed for: $target"
 }
 
 # ============================================
@@ -137,6 +165,7 @@ confirm_strict() {
 get_partitions() {
     local disk="$1"
     local boot_mode="${2:-uefi}"
+    debug "get_partitions called with: $disk, boot_mode: $boot_mode"
     
     if [[ "$disk" == *"nvme"* ]] || [[ "$disk" == *"mmcblk"* ]]; then
         if [[ "$boot_mode" == "uefi" ]]; then
@@ -154,6 +183,8 @@ get_partitions() {
             ROOT_PART="${disk}1"
         fi
     fi
+    
+    debug "get_partitions: BOOT_PART=$BOOT_PART, ROOT_PART=$ROOT_PART"
 }
 
 # ============================================
@@ -162,6 +193,7 @@ get_partitions() {
 validate_profile() {
     local profile="$1"
     local script_dir="$2"
+    debug "validate_profile called with: $profile, script_dir: $script_dir"
     
     if [[ "$profile" == "none" ]]; then
         return 0
@@ -179,6 +211,7 @@ validate_profile_distro() {
     local profile="$1"
     local script_dir="$2"
     local distro="$3"
+    debug "validate_profile_distro called with: $profile, $script_dir, $distro"
     
     # For now, all profiles are Arch-only
     if [[ "$distro" != "arch" ]]; then
@@ -190,6 +223,7 @@ validate_profile_distro() {
 # CLEANUP
 # ============================================
 cleanup_on_error() {
+    debug "cleanup_on_error called"
     warn "Cleaning up after error..."
     if mountpoint -q /mnt; then
         umount -R /mnt 2>/dev/null || true
@@ -206,6 +240,7 @@ trap cleanup_on_error ERR
 # Check if package is installed
 package_installed() {
     local pkg="$1"
+    debug "package_installed called with: $pkg"
     if command -v pacman >/dev/null 2>&1; then
         pacman -Q "$pkg" &>/dev/null
     elif command -v apt >/dev/null 2>&1; then
@@ -218,5 +253,6 @@ package_installed() {
 # Get available disk space in GB
 get_available_space() {
     local mountpoint="$1"
+    debug "get_available_space called with: $mountpoint"
     df -BG "$mountpoint" 2>/dev/null | awk 'NR==2 {print $4}' | sed 's/G//'
 }

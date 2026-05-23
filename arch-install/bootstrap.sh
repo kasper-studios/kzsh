@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
+
+# Enable debug mode if DEBUG=1
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    set -x
+fi
 
 # KASPERENOK ARCH INSTALLER BOOTSTRAP
 # This script clones the full repository and starts the installation.

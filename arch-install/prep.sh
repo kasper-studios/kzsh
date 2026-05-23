@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
+
+# Enable debug mode if DEBUG=1
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    set -x
+fi
 
 # Source common functions
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -12,15 +17,20 @@ fi
 
 source "${SCRIPT_DIR}/lib/common.sh"
 
+info "prep.sh started"
+
 # ============================================
 # DISTRIBUTION DETECTION
 # ============================================
 KZSH_DISTRO=$(detect_distro)
 info "Detected distribution: $KZSH_DISTRO"
 
+info "Checking if distribution is supported..."
 if ! is_distro_supported "$KZSH_DISTRO"; then
     error "Unsupported distribution: $KZSH_DISTRO. Only Arch Linux-based distros are supported."
 fi
+
+info "Distribution validation passed"
 
 # ============================================
 # DEFAULT VALUES
@@ -58,6 +68,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+info "Arguments parsed: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME, PROFILE=$PROFILE"
+
 # ============================================
 # INTERACTIVE MODE
 # ============================================
@@ -78,11 +90,16 @@ if [[ -z "$DISK" ]]; then
     INSTALL_KZSH="${input_kzsh:-yes}"
 fi
 
+info "Interactive mode completed: DISK=$DISK"
+
 # ============================================
 # VALIDATION
 # ============================================
+info "Validating disk: $DISK"
 validate_disk "$DISK"
+info "Disk validation passed"
 check_disk_size "$DISK"
+info "Disk size check passed"
 
 # Validate filesystem choice
 if [[ "$FILESYSTEM" != "btrfs" && "$FILESYSTEM" != "ext4" ]]; then
@@ -94,7 +111,9 @@ validate_profile "$PROFILE" "$SCRIPT_DIR"
 validate_profile_distro "$PROFILE" "$SCRIPT_DIR" "$KZSH_DISTRO"
 
 # Detect boot mode first
+info "Detecting boot mode..."
 BOOT_MODE=$(detect_boot_mode)
+info "Boot mode: $BOOT_MODE"
 check_boot_mode
 
 # Determine bootloader based on boot mode
@@ -105,6 +124,8 @@ if [[ "$BOOTLOADER" == "auto" ]]; then
         BOOTLOADER="grub"
     fi
 fi
+
+info "Bootloader: $BOOTLOADER"
 
 # ============================================
 # CONFIGURATION SUMMARY
@@ -121,12 +142,15 @@ info "  Profile: $PROFILE"
 [[ -n "$SWAP_SIZE" ]] && info "  Swap: ${SWAP_SIZE}MB"
 info "  Install KZSH: $INSTALL_KZSH"
 
+info "Starting confirmation prompt..."
 confirm_strict "$DISK"
+info "Confirmation passed"
 
 info "Partitioning $DISK..."
 
 if [[ "$BOOT_MODE" == "uefi" ]]; then
     # UEFI: EFI System Partition + Root
+    info "Creating GPT label and partitions for UEFI..."
     parted -s "$DISK" mklabel gpt
     parted -s "$DISK" mkpart ESP fat32 1MiB 513MiB
     parted -s "$DISK" set 1 esp on
@@ -137,6 +161,7 @@ if [[ "$BOOT_MODE" == "uefi" ]]; then
     mkfs.fat -F32 "$BOOT_PART"
 else
     # BIOS: Single root partition with BIOS boot for GRUB
+    info "Creating GPT label and partitions for BIOS..."
     parted -s "$DISK" mklabel gpt
     parted -s "$DISK" mkpart BIOS 1MiB 2MiB
     parted -s "$DISK" set 1 bios_grub on
@@ -144,12 +169,17 @@ else
     get_partitions "$DISK" "bios"
 fi
 
+info "Partitioning completed"
+
 info "Formatting root partition with $FILESYSTEM..."
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
+    info "Creating BTRFS filesystem..."
     mkfs.btrfs -f "$ROOT_PART"
 else
+    info "Creating ext4 filesystem..."
     mkfs.ext4 -F "$ROOT_PART"
 fi
+info "Root partition formatted"
 
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS subvolumes..."
@@ -195,11 +225,16 @@ else
     fi
 fi
 
+info "Filesystem mounted"
+
 # Mount boot partition for UEFI
 if [[ "$BOOT_MODE" == "uefi" ]]; then
+    info "Mounting EFI partition..."
     mkdir -p /mnt/boot
     mount "$BOOT_PART" /mnt/boot
 fi
+
+info "Boot partition mounted"
 
 info "Installing base system (pacstrap)..."
 # Basic packages plus what's needed for the next stage
@@ -229,15 +264,22 @@ if [[ "$BOOTLOADER" == "grub" ]]; then
     fi
 fi
 
+info "Base packages: $BASE_PACKAGES"
+info "Running pacstrap..."
 pacstrap /mnt $BASE_PACKAGES
+info "Pacstrap completed"
 
 info "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
+info "Fstab generated"
 
 # Copy the installation folder to the new system for the second stage
+info "Copying installation folder to /mnt/root/arch-install..."
 cp -r "${SCRIPT_DIR}" /mnt/root/arch-install
+info "Installation folder copied"
 
 # Save installation metadata for post.sh
+info "Saving installation metadata..."
 cat > /mnt/root/arch-install/.install-meta << EOF
 BOOT_MODE=$BOOT_MODE
 BOOTLOADER=$BOOTLOADER
@@ -245,6 +287,9 @@ FILESYSTEM=$FILESYSTEM
 DISK=$DISK
 INSTALL_KZSH=$INSTALL_KZSH
 EOF
+info "Installation metadata saved"
 
 success "Stage 1 (Prep) complete."
 info "Now run: arch-chroot /mnt /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --profile $PROFILE"
+
+info "prep.sh completed successfully"
