@@ -231,7 +231,7 @@ fi
 info "Filesystem mounted"
 
 # Mount boot partition for UEFI
-if [[ "$BOOT_MODE" == "uefi" ]]; then
+if [[ "$BOOT_MODE" == "uefi" && -n "$BOOT_PART" ]]; then
     info "Mounting EFI partition..."
     mkdir -p /mnt/boot
     mount "$BOOT_PART" /mnt/boot

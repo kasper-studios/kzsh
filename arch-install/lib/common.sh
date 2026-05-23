@@ -186,6 +186,7 @@ get_partitions() {
         else
             # BIOS: no separate boot partition needed with GRUB on BTRFS
             ROOT_PART="${disk}p1"
+            BOOT_PART=""  # No separate boot partition for BIOS
         fi
     else
         if [[ "$boot_mode" == "uefi" ]]; then
@@ -193,6 +194,7 @@ get_partitions() {
             ROOT_PART="${disk}2"
         else
             ROOT_PART="${disk}1"
+            BOOT_PART=""  # No separate boot partition for BIOS
         fi
     fi
     
