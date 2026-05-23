@@ -44,7 +44,7 @@ kreload() {
 
 alias krl='kreload'
 
-for mod in 00-env 05-pkg 07-bootstrap 10-core 20-aliases 25-bun 30-git 40-docker 50-funcs 60-prompt 70-apps 80-sys; do
+for mod in 00-env 05-pkg 06-autoupdate 07-bootstrap 08-session 10-core 20-aliases 25-bun 30-git 40-docker 50-funcs 60-prompt 70-apps 80-sys; do
   [[ -f "$KZSH_DIR/$mod.zsh" ]] && source "$KZSH_DIR/$mod.zsh"
 done
 
