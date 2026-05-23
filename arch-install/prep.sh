@@ -201,48 +201,35 @@ info "Root partition formatted"
 # Use /install-root instead of /mnt to avoid conflict with ArchISO squashfs
 INSTALL_ROOT="/install-root"
 
-# Clean up install root if it exists
-if mountpoint -q "$INSTALL_ROOT" 2>/dev/null; then
-    info "Unmounting $INSTALL_ROOT..."
-    umount "$INSTALL_ROOT" 2>/dev/null || true
-fi
+validate_and_prepare_install_root "$INSTALL_ROOT"
 
-# Remove install root directory if it exists
-if [[ -d "$INSTALL_ROOT" && ! -L "$INSTALL_ROOT" ]]; then
-    info "Removing $INSTALL_ROOT directory..."
-    rmdir "$INSTALL_ROOT" 2>/dev/null || rm -rf "$INSTALL_ROOT" 2>/dev/null || true
-fi
 
-# Create fresh install root directory
-mkdir -p "$INSTALL_ROOT"
-
-# Mount the root partition to install root
-info "Mounting root partition to $INSTALL_ROOT..."
-mount "$ROOT_PART" "$INSTALL_ROOT"
-info "Root partition mounted to $INSTALL_ROOT"
 
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
+    info "Mounting root partition temporarily for BTRFS subvolume creation..."
+    mount "$ROOT_PART" "$INSTALL_ROOT" || error "Failed to mount root partition"
+    
     info "Creating BTRFS subvolumes..."
-    btrfs subvolume create "$INSTALL_ROOT/@"
-    btrfs subvolume create "$INSTALL_ROOT/@home"
-    btrfs subvolume create "$INSTALL_ROOT/@log"
-    btrfs subvolume create "$INSTALL_ROOT/@pkg"
+    btrfs subvolume create "$INSTALL_ROOT/@" || error "Failed to create @ subvolume"
+    btrfs subvolume create "$INSTALL_ROOT/@home" || error "Failed to create @home subvolume"
+    btrfs subvolume create "$INSTALL_ROOT/@log" || error "Failed to create @log subvolume"
+    btrfs subvolume create "$INSTALL_ROOT/@pkg" || error "Failed to create @pkg subvolume"
     if [[ -n "$SWAP_SIZE" ]]; then
-        btrfs subvolume create "$INSTALL_ROOT/@swap"
+        btrfs subvolume create "$INSTALL_ROOT/@swap" || error "Failed to create @swap subvolume"
     fi
 
     info "Unmounting and remounting with subvolumes..."
     umount "$INSTALL_ROOT"
     
-    mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT"
+    mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT" || error "Failed to mount @ subvolume"
     mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
-    mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home"
-    mount -o subvol=@log,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/log"
-    mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/cache/pacman/pkg"
+    mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home" || error "Failed to mount @home subvolume"
+    mount -o subvol=@log,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/log" || error "Failed to mount @log subvolume"
+    mount -o subvol=@pkg,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/var/cache/pacman/pkg" || error "Failed to mount @pkg subvolume"
 
     if [[ -n "$SWAP_SIZE" ]]; then
         mkdir -p "$INSTALL_ROOT/swap"
-        mount -o subvol=@swap,noatime "$ROOT_PART" "$INSTALL_ROOT/swap"
+        mount -o subvol=@swap,noatime "$ROOT_PART" "$INSTALL_ROOT/swap" || error "Failed to mount @swap subvolume"
         # Create swap file without chattr (BTRFS doesn't support it)
         truncate -s 0 "$INSTALL_ROOT/swap/swapfile"
         dd if=/dev/zero of="$INSTALL_ROOT/swap/swapfile" bs=1M count="$SWAP_SIZE" status=progress
@@ -252,7 +239,7 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     fi
 else
     info "Mounting ext4 filesystem..."
-    mount "$ROOT_PART" "$INSTALL_ROOT"
+    mount "$ROOT_PART" "$INSTALL_ROOT" || error "Failed to mount root partition to $INSTALL_ROOT"
     mkdir -p "$INSTALL_ROOT/{home,var/log,var/cache/pacman/pkg}"
     
     if [[ -n "$SWAP_SIZE" ]]; then
@@ -270,7 +257,7 @@ info "Filesystem mounted"
 if [[ "$BOOT_MODE" == "uefi" && -n "$BOOT_PART" ]]; then
     info "Mounting EFI partition..."
     mkdir -p "$INSTALL_ROOT/boot"
-    mount "$BOOT_PART" "$INSTALL_ROOT/boot"
+    mount "$BOOT_PART" "$INSTALL_ROOT/boot" || error "Failed to mount EFI partition to $INSTALL_ROOT/boot"
 fi
 
 info "Boot partition mounted"
@@ -319,7 +306,7 @@ info "Installation folder copied"
 
 # Save installation metadata for post.sh
 info "Saving installation metadata..."
-cat > "$INSTALL_ROOT/root/arch-install/.install-meta << EOF
+cat > "$INSTALL_ROOT/root/arch-install/.install-meta" << EOF
 BOOT_MODE=$BOOT_MODE
 BOOTLOADER=$BOOTLOADER
 FILESYSTEM=$FILESYSTEM

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -uo pipefail
 
 # Enable debug mode if DEBUG=1
@@ -239,13 +239,233 @@ validate_profile_distro() {
 cleanup_on_error() {
     debug "cleanup_on_error called"
     warn "Cleaning up after error..."
-    if mountpoint -q /mnt; then
-        umount -R /mnt 2>/dev/null || true
-    fi
+    
+    # Turn off swap first
     swapoff -a 2>/dev/null || true
+    
+    # Function to unmount a directory and all its nested mounts
+    unmount_recursive() {
+        local mount_point="$1"
+        
+        if [[ ! -d "$mount_point" ]]; then
+            debug "Mount point $mount_point does not exist, skipping"
+            return 0
+        fi
+        
+        if ! mountpoint -q "$mount_point" 2>/dev/null; then
+            debug "$mount_point is not a mount point, skipping"
+            return 0
+        fi
+        
+        debug "Unmounting $mount_point and nested mounts..."
+        
+        # Get all mount points under the target, sorted by depth (deepest first)
+        local mounts
+        mounts=$(findmnt -R -n -o TARGET "$mount_point" 2>/dev/null | tac || true)
+        
+        if [[ -z "$mounts" ]]; then
+            debug "No mounts found under $mount_point"
+            return 0
+        fi
+        
+        # Unmount each mount point
+        while IFS= read -r mount; do
+            if [[ -n "$mount" ]] && mountpoint -q "$mount" 2>/dev/null; then
+                debug "Unmounting: $mount"
+                umount "$mount" 2>/dev/null || umount -l "$mount" 2>/dev/null || true
+            fi
+        done <<< "$mounts"
+    }
+    
+    # Try to unmount /install-root (primary mount point used by the script)
+    unmount_recursive "/install-root"
+    
+    # Also try /mnt for compatibility
+    unmount_recursive "/mnt"
+    
+    debug "cleanup_on_error completed"
 }
 
 # Set trap for cleanup
+
+# ============================================
+# MOUNT POINT VALIDATION AND CLEANUP
+# ============================================
+
+# Check if a path or any of its subdirectories are mounted
+check_mounts_under_path() {
+    local target_path=$1
+    debug check_mounts_under_path called with: $target_path
+    
+    # Normalize path (remove trailing slash)
+    target_path=${target_path%/}
+    
+    # Get all mount points that start with target_path
+    local mounted_paths
+    mounted_paths=$(findmnt -n -o TARGET 2>/dev/null | grep ^${target_path} | sort -r)
+    
+    if [[ -n $mounted_paths ]]; then
+        debug Found mounts under $target_path:
+        echo $mounted_paths | while read -r mp; do
+            debug  - $mp
+        done
+        return 0  # Mounts found
+    else
+        debug No mounts found under $target_path
+        return 1  # No mounts found
+    fi
+}
+
+# Get list of all mount points under a path, sorted by depth (deepest first)
+get_mounts_under_path() {
+    local target_path=$1
+    debug get_mounts_under_path called with: $target_path
+    
+    # Normalize path (remove trailing slash)
+    target_path=${target_path%/}
+    
+    # Get all mount points under target_path, sort by depth (deepest first)
+    findmnt -R -n -o TARGET $target_path 2>/dev/null | tac
+}
+
+# Unmount all mounts under a path (deepest first to avoid busy errors)
+unmount_all_under_path() {
+    local target_path=$1
+    local force=${2:-no}
+    debug unmount_all_under_path called with: $target_path, force: $force
+    
+    info Checking for existing mounts under $target_path...
+    
+    local mounted_paths
+    mounted_paths=$(get_mounts_under_path $target_path)
+    
+    if [[ -z $mounted_paths ]]; then
+        debug No mounts found under $target_path
+        return 0
+    fi
+    
+    info Found existing mounts under $target_path, unmounting...
+    
+    # Disable swap files under target path first
+    while read -r mp; do
+        if [[ -n $mp ]]; then
+            # Check for swap files in this mount
+            local swap_files
+            swap_files=$(swapon --show=NAME --noheadings 2>/dev/null | grep ^${mp}/)
+            if [[ -n $swap_files ]]; then
+                while read -r swap_file; do
+                    if [[ -n $swap_file ]]; then
+                        info Disabling swap: $swap_file
+                        swapoff $swap_file 2>/dev/null || warn Failed to disable swap: $swap_file
+                    fi
+                done <<< $swap_files
+            fi
+        fi
+    done <<< $mounted_paths
+    
+    # Unmount in reverse order (deepest first)
+    local unmount_failed=0
+    while read -r mp; do
+        if [[ -n $mp ]]; then
+            info Unmounting: $mp
+            
+            # Try normal unmount first
+            if umount $mp 2>/dev/null; then
+                success Unmounted: $mp
+            else
+                warn Failed to unmount $mp, trying lazy unmount...
+                if umount -l $mp 2>/dev/null; then
+                    success Lazy unmounted: $mp
+                else
+                    if [[ $force == yes ]]; then
+                        warn Forcing unmount of $mp...
+                        umount -f $mp 2>/dev/null || warn Force unmount failed: $mp
+                    else
+                        error Failed to unmount $mp. Use force mode or check for processes using this mount.
+                    fi
+                    unmount_failed=1
+                fi
+            fi
+        fi
+    done <<< $mounted_paths
+    
+    if [[ $unmount_failed -eq 1 ]]; then
+        return 1
+    fi
+    
+    success All mounts under $target_path have been unmounted
+    return 0
+}
+
+# Validate and prepare install root directory
+validate_and_prepare_install_root() {
+    local install_root=$1
+    debug validate_and_prepare_install_root called with: $install_root
+    
+    info Validating install root: $install_root
+    
+    # Check if install_root or any subdirectories are mounted
+    if check_mounts_under_path $install_root; then
+        warn Found existing mounts under $install_root
+        
+        # List all mounts for user visibility
+        info Existing mounts:
+        get_mounts_under_path $install_root | while read -r mp; do
+            if [[ -n $mp ]]; then
+                local mount_info
+                mount_info=$(findmnt -n -o SOURCE,FSTYPE,OPTIONS $mp 2>/dev/null | head -n1)
+                info  $mp: $mount_info
+            fi
+        done
+        
+        # Unmount all existing mounts
+        unmount_all_under_path $install_root no
+    fi
+    
+    # Verify no mounts remain
+    if check_mounts_under_path $install_root; then
+        error Failed to unmount all mounts under $install_root
+    fi
+    
+    # Clean up the directory
+    if [[ -e $install_root ]]; then
+        if [[ -L $install_root ]]; then
+            info Removing symlink: $install_root
+            rm -f $install_root
+        elif [[ -d $install_root ]]; then
+            info Cleaning install root directory: $install_root
+            # Check if directory is empty
+            if [[ -n $(ls -A $install_root 2>/dev/null) ]]; then
+                warn Directory $install_root is not empty, removing contents...
+                rm -rf ${install_root:?}/* 2>/dev/null || true
+                rm -rf ${install_root:?}/.* 2>/dev/null || true
+            fi
+            # Try to remove directory
+            if ! rmdir $install_root 2>/dev/null; then
+                warn Could not remove $install_root, forcing removal...
+                rm -rf $install_root 2>/dev/null || true
+            fi
+        elif [[ -f $install_root ]]; then
+            warn $install_root is a file, removing...
+            rm -f $install_root
+        fi
+    fi
+    
+    # Create fresh directory
+    info Creating fresh install root directory: $install_root
+    mkdir -p $install_root
+    
+    # Verify directory was created and is empty
+    if [[ ! -d $install_root ]]; then
+        error Failed to create install root directory: $install_root
+    fi
+    
+    if [[ -n $(ls -A $install_root 2>/dev/null) ]]; then
+        error Install root directory is not empty after cleanup: $install_root
+    fi
+    
+    success Install root validated and prepared: $install_root
+}
 trap cleanup_on_error ERR
 
 # ============================================
