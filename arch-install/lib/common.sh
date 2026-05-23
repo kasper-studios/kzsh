@@ -1,6 +1,4 @@
-﻿set -uo pipefail
-
-# Enable debug mode if DEBUG=1
+﻿# Enable debug mode if DEBUG=1
 if [[ "${DEBUG:-0}" == "1" ]]; then
     set -x
 fi
