@@ -9,7 +9,11 @@ if [[ "$(tty)" == "/dev/tty1" ]] && \
    [[ -z "$DESKTOP_SESSION" ]]; then
     
     # Additional check: don't run if compositor is already running
-    if pgrep -x "niri|gnome-shell|plasmashell|Hyprland|sway" >/dev/null 2>&1; then
+    if pgrep -x niri >/dev/null 2>&1 || \
+       pgrep -x gnome-shell >/dev/null 2>&1 || \
+       pgrep -x plasmashell >/dev/null 2>&1 || \
+       pgrep -x Hyprland >/dev/null 2>&1 || \
+       pgrep -x sway >/dev/null 2>&1; then
         return 0
     fi
     

@@ -190,7 +190,14 @@ kupdate() {
   local repo_dir=""
   if [[ -L "${KZSH_DIR}" ]]; then
     # KZSH_DIR is a symlink, find the real repo
-    repo_dir=$(readlink -f "${KZSH_DIR}/../..")
+    local link_target=$(readlink "${KZSH_DIR}")
+    if [[ "$link_target" == /* ]]; then
+      # Absolute path
+      repo_dir=$(cd "$(dirname "$link_target")/.." && pwd)
+    else
+      # Relative path
+      repo_dir=$(cd "$(dirname "${KZSH_DIR}")/$link_target/.." && pwd)
+    fi
   elif [[ -d "${KZSH_DIR}/.git" ]]; then
     # Old installation, KZSH_DIR itself is a git repo
     repo_dir="${KZSH_DIR}"
