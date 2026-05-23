@@ -43,6 +43,7 @@ SWAP_SIZE=""
 FILESYSTEM="btrfs"
 BOOTLOADER="auto"
 INSTALL_KZSH="yes"
+AUTO_CONFIRM="0"
 
 # ============================================
 # PARSE ARGUMENTS
@@ -57,6 +58,7 @@ while [[ $# -gt 0 ]]; do
         --fs|-fs) FILESYSTEM="$2"; shift 2 ;;
         --bootloader|-bootloader) BOOTLOADER="$2"; shift 2 ;;
         --kzsh|-kzsh) INSTALL_KZSH="$2"; shift 2 ;;
+        --yes|-yes) AUTO_CONFIRM="1"; shift ;;
         --debug|-debug) DEBUG=1; shift ;;
         *) 
             # If it starts with -, it's an unknown option
@@ -143,6 +145,7 @@ info "  Profile: $PROFILE"
 info "  Install KZSH: $INSTALL_KZSH"
 
 info "Starting confirmation prompt..."
+export AUTO_CONFIRM
 confirm_strict "$DISK"
 info "Confirmation passed"
 

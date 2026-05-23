@@ -151,6 +151,18 @@ confirm_strict() {
     local target="$1"
     debug "confirm_strict called with: $target"
     warn "THIS WILL ERASE ALL DATA ON ${target}!"
+    
+    # Check if --yes flag was passed (for automation)
+    if [[ "${AUTO_CONFIRM:-0}" == "1" ]]; then
+        info "Auto-confirming (AUTO_CONFIRM=1)"
+        return 0
+    fi
+    
+    # Check if running in interactive mode
+    if [[ ! -t 0 ]]; then
+        error "Non-interactive mode detected. Use --yes flag to auto-confirm."
+    fi
+    
     echo -n "Type 'ERASE' to continue: "
     read -r confirmation
     if [[ "$confirmation" != "ERASE" ]]; then
