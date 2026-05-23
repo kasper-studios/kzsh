@@ -33,6 +33,11 @@ fi
 info "Distribution validation passed"
 
 # ============================================
+# INTERNET CHECK
+# ============================================
+check_internet
+
+# ============================================
 # DEFAULT VALUES
 # ============================================
 DISK=""
@@ -88,8 +93,16 @@ if [[ -z "$DISK" ]]; then
     read -rp "Filesystem (btrfs/ext4) [$FILESYSTEM]: " input_fs
     FILESYSTEM="${input_fs:-$FILESYSTEM}"
     read -rp "Swap size in MB (leave empty for none): " SWAP_SIZE
-    read -rp "Install KZSH after setup? [Y/n]: " input_kzsh
-    INSTALL_KZSH="${input_kzsh:-yes}"
+    read -rp "Install KZSH after setup? (y/n) [$INSTALL_KZSH]: " input_kzsh
+    input_kzsh="${input_kzsh:-$INSTALL_KZSH}"
+    # Normalize input
+    if [[ "$input_kzsh" =~ ^(y|yes|Y|YES)$ ]]; then
+        INSTALL_KZSH="yes"
+    elif [[ "$input_kzsh" =~ ^(n|no|N|NO)$ ]]; then
+        INSTALL_KZSH="no"
+    else
+        INSTALL_KZSH="yes"
+    fi
 fi
 
 info "Interactive mode completed: DISK=$DISK"
@@ -111,6 +124,17 @@ fi
 # Validate profile
 validate_profile "$PROFILE" "$SCRIPT_DIR"
 validate_profile_distro "$PROFILE" "$SCRIPT_DIR" "$KZSH_DISTRO"
+
+# Normalize KZSH installation option
+INSTALL_KZSH=$(echo "$INSTALL_KZSH" | tr '[:upper:]' '[:lower:]')
+if [[ "$INSTALL_KZSH" =~ ^(y|yes|1|true)$ ]]; then
+    INSTALL_KZSH="yes"
+elif [[ "$INSTALL_KZSH" =~ ^(n|no|0|false)$ ]]; then
+    INSTALL_KZSH="no"
+else
+    warn "Invalid KZSH option: $INSTALL_KZSH, defaulting to 'yes'"
+    INSTALL_KZSH="yes"
+fi
 
 # Detect boot mode first
 info "Detecting boot mode..."
@@ -151,47 +175,88 @@ info "Confirmation passed"
 
 info "Partitioning $DISK..."
 
-# Check if disk has existing partitions and remove them
-if lsblk -no NAME "$DISK" | grep -q "^${DISK##*/}"; then
-    info "Existing partitions found on $DISK, removing..."
-    # Remove all partitions from the disk
-    for part in $(lsblk -no NAME "$DISK"); do
-        if [[ "$part" != "${DISK##*/}" ]]; then
-            info "Removing partition: /dev/$part"
-            rm -f "/dev/$part" 2>/dev/null || true
-        fi
-    done
-    # Wipe partition table
-    wipefs -a "$DISK" 2>/dev/null || true
-fi
+# Unmount any partitions on the disk
+info "Unmounting any existing partitions on $DISK..."
+for part in $(lsblk -lno NAME "$DISK" 2>/dev/null | grep -v "^${DISK##*/}$" || true); do
+    if mountpoint -q "/dev/$part" 2>/dev/null || mount | grep -q "^/dev/$part"; then
+        info "Unmounting /dev/$part..."
+        umount -f "/dev/$part" 2>/dev/null || true
+    fi
+done
+
+# Disable any swap on the disk
+info "Disabling swap on $DISK..."
+for part in $(lsblk -lno NAME "$DISK" 2>/dev/null | grep -v "^${DISK##*/}$" || true); do
+    swapoff "/dev/$part" 2>/dev/null || true
+done
+
+# Wipe filesystem signatures and partition table
+info "Wiping filesystem signatures and partition table..."
+wipefs -af "$DISK" 2>/dev/null || true
+dd if=/dev/zero of="$DISK" bs=512 count=1 conv=notrunc 2>/dev/null || true
+sync
+
+# Wait for kernel to update
+sleep 2
 
 if [[ "$BOOT_MODE" == "uefi" ]]; then
     # UEFI: EFI System Partition + Root
     info "Creating GPT label and partitions for UEFI..."
-    parted -s "$DISK" mklabel gpt
-    parted -s "$DISK" mkpart ESP fat32 1MiB 513MiB
-    parted -s "$DISK" set 1 esp on
-    parted -s "$DISK" mkpart ROOT "$FILESYSTEM" 513MiB 100%
+    parted -s "$DISK" mklabel gpt || error "Failed to create GPT label"
+    parted -s "$DISK" mkpart ESP fat32 1MiB 513MiB || error "Failed to create ESP partition"
+    parted -s "$DISK" set 1 esp on || error "Failed to set ESP flag"
+    parted -s "$DISK" mkpart ROOT "$FILESYSTEM" 513MiB 100% || error "Failed to create root partition"
+    
+    # Wait for kernel to recognize partitions
+    sync
+    partprobe "$DISK" 2>/dev/null || true
+    sleep 2
+    
+    # Get partition names
     get_partitions "$DISK" "uefi"
     
+    # Verify partitions exist
+    if [[ ! -b "$BOOT_PART" ]]; then
+        error "Boot partition $BOOT_PART was not created"
+    fi
+    if [[ ! -b "$ROOT_PART" ]]; then
+        error "Root partition $ROOT_PART was not created"
+    fi
+    
     info "Formatting EFI partition..."
-    mkfs.fat -F32 "$BOOT_PART"
+    mkfs.fat -F32 "$BOOT_PART" || error "Failed to format EFI partition"
 else
-    # BIOS: Single root partition with BIOS boot for GRUB
+    # BIOS: BIOS boot partition + Root partition
     info "Creating GPT label and partitions for BIOS..."
-    parted -s "$DISK" mklabel gpt
-    parted -s "$DISK" mkpart BIOS 1MiB 2MiB
-    parted -s "$DISK" set 1 bios_grub on
-    parted -s "$DISK" mkpart ROOT "$FILESYSTEM" 2MiB 100%
+    parted -s "$DISK" mklabel gpt || error "Failed to create GPT label"
+    parted -s "$DISK" mkpart BIOS 1MiB 2MiB || error "Failed to create BIOS boot partition"
+    parted -s "$DISK" set 1 bios_grub on || error "Failed to set bios_grub flag"
+    parted -s "$DISK" mkpart ROOT "$FILESYSTEM" 2MiB 100% || error "Failed to create root partition"
+    
+    # Wait for kernel to recognize partitions
+    sync
+    partprobe "$DISK" 2>/dev/null || true
+    sleep 2
+    
+    # Get partition names
     get_partitions "$DISK" "bios"
+    
+    # Verify root partition exists
+    if [[ ! -b "$ROOT_PART" ]]; then
+        error "Root partition $ROOT_PART was not created"
+    fi
 fi
 
 info "Partitioning completed"
+info "Boot partition: ${BOOT_PART:-none}"
+info "Root partition: $ROOT_PART"
 
 info "Formatting root partition with $FILESYSTEM..."
 if [[ "$FILESYSTEM" == "btrfs" ]]; then
     info "Creating BTRFS filesystem..."
-    mkfs.btrfs -f "$ROOT_PART"
+    if ! mkfs.btrfs -f "$ROOT_PART" 2>&1; then
+        error "Failed to create BTRFS filesystem on $ROOT_PART. The partition may be too small (minimum ~109MB required for BTRFS). Try using ext4 instead with --fs ext4"
+    fi
 else
     info "Creating ext4 filesystem..."
     mkfs.ext4 -F "$ROOT_PART"
@@ -230,12 +295,16 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     if [[ -n "$SWAP_SIZE" ]]; then
         mkdir -p "$INSTALL_ROOT/swap"
         mount -o subvol=@swap,noatime "$ROOT_PART" "$INSTALL_ROOT/swap" || error "Failed to mount @swap subvolume"
-        # Create swap file without chattr (BTRFS doesn't support it)
-        truncate -s 0 "$INSTALL_ROOT/swap/swapfile"
-        dd if=/dev/zero of="$INSTALL_ROOT/swap/swapfile" bs=1M count="$SWAP_SIZE" status=progress
-        chmod 600 "$INSTALL_ROOT/swap/swapfile"
-        mkswap "$INSTALL_ROOT/swap/swapfile"
-        swapon "$INSTALL_ROOT/swap/swapfile"
+        
+        info "Creating swap file on BTRFS..."
+        # BTRFS swap file creation (requires special handling)
+        truncate -s 0 "$INSTALL_ROOT/swap/swapfile" || error "Failed to create swap file"
+        chattr +C "$INSTALL_ROOT/swap/swapfile" 2>/dev/null || warn "Could not set NOCOW attribute (chattr +C)"
+        dd if=/dev/zero of="$INSTALL_ROOT/swap/swapfile" bs=1M count="$SWAP_SIZE" status=progress || error "Failed to allocate swap file"
+        chmod 600 "$INSTALL_ROOT/swap/swapfile" || error "Failed to set swap file permissions"
+        mkswap "$INSTALL_ROOT/swap/swapfile" || error "Failed to format swap file"
+        swapon "$INSTALL_ROOT/swap/swapfile" || error "Failed to enable swap file"
+        info "Swap file created and enabled"
     fi
 else
     info "Mounting ext4 filesystem..."
@@ -291,9 +360,11 @@ if [[ "$BOOTLOADER" == "grub" ]]; then
 fi
 
 info "Base packages: $BASE_PACKAGES"
-info "Running pacstrap..."
-pacstrap "$INSTALL_ROOT" $BASE_PACKAGES
-info "Pacstrap completed"
+info "Running pacstrap (this may take several minutes)..."
+if ! pacstrap -K "$INSTALL_ROOT" $BASE_PACKAGES; then
+    error "Pacstrap failed. Check your internet connection and try again."
+fi
+info "Pacstrap completed successfully"
 
 info "Generating fstab..."
 genfstab -U "$INSTALL_ROOT" >> "$INSTALL_ROOT/etc/fstab"

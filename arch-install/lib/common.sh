@@ -52,8 +52,9 @@ detect_distro() {
     debug "detect_distro called"
     if [[ -f /etc/os-release ]]; then
         source /etc/os-release
-        debug "Detected distro: $ID"
-        echo "$ID"
+        local detected_id="$ID"
+        debug "Detected distro: $detected_id"
+        echo "$detected_id"
     else
         debug "No os-release found, returning unknown"
         echo "unknown"
@@ -184,21 +185,26 @@ get_partitions() {
             BOOT_PART="${disk}p1"
             ROOT_PART="${disk}p2"
         else
-            # BIOS: no separate boot partition needed with GRUB on BTRFS
-            ROOT_PART="${disk}p1"
-            BOOT_PART=""  # No separate boot partition for BIOS
+            # BIOS: partition 1 is BIOS boot (1MB), partition 2 is root
+            ROOT_PART="${disk}p2"
+            BOOT_PART=""
         fi
     else
         if [[ "$boot_mode" == "uefi" ]]; then
             BOOT_PART="${disk}1"
             ROOT_PART="${disk}2"
         else
-            ROOT_PART="${disk}1"
-            BOOT_PART=""  # No separate boot partition for BIOS
+            # BIOS: partition 1 is BIOS boot (1MB), partition 2 is root
+            ROOT_PART="${disk}2"
+            BOOT_PART=""
         fi
     fi
     
     debug "get_partitions: BOOT_PART=$BOOT_PART, ROOT_PART=$ROOT_PART"
+    
+    # Export variables so they're available in the calling script
+    export BOOT_PART
+    export ROOT_PART
 }
 
 # ============================================
@@ -295,23 +301,23 @@ cleanup_on_error() {
 # Check if a path or any of its subdirectories are mounted
 check_mounts_under_path() {
     local target_path=$1
-    debug check_mounts_under_path called with: $target_path
+    debug check_mounts_under_path called with: "${target_path}"
     
     # Normalize path (remove trailing slash)
     target_path=${target_path%/}
     
     # Get all mount points that start with target_path
     local mounted_paths
-    mounted_paths=$(findmnt -n -o TARGET 2>/dev/null | grep ^${target_path} | sort -r)
+    mounted_paths=$(findmnt -n -o TARGET 2>/dev/null | grep "^${target_path}" | sort -r)
     
-    if [[ -n $mounted_paths ]]; then
-        debug Found mounts under $target_path:
-        echo $mounted_paths | while read -r mp; do
-            debug  - $mp
+    if [[ -n "$mounted_paths" ]]; then
+        debug "Found mounts under ${target_path}:"
+        printf '%s\n' "$mounted_paths" | while read -r mp; do
+            debug " - ${mp}"
         done
         return 0  # Mounts found
     else
-        debug No mounts found under $target_path
+        debug "No mounts found under ${target_path}"
         return 1  # No mounts found
     fi
 }
@@ -319,81 +325,81 @@ check_mounts_under_path() {
 # Get list of all mount points under a path, sorted by depth (deepest first)
 get_mounts_under_path() {
     local target_path=$1
-    debug get_mounts_under_path called with: $target_path
+    debug get_mounts_under_path called with: "${target_path}"
     
     # Normalize path (remove trailing slash)
     target_path=${target_path%/}
     
     # Get all mount points under target_path, sort by depth (deepest first)
-    findmnt -R -n -o TARGET $target_path 2>/dev/null | tac
+    findmnt -R -n -o TARGET "$target_path" 2>/dev/null | tac
 }
 
 # Unmount all mounts under a path (deepest first to avoid busy errors)
 unmount_all_under_path() {
     local target_path=$1
     local force=${2:-no}
-    debug unmount_all_under_path called with: $target_path, force: $force
+    debug unmount_all_under_path called with: "$target_path", force: "$force"
     
-    info Checking for existing mounts under $target_path...
+    info "Checking for existing mounts under $target_path..."
     
     local mounted_paths
-    mounted_paths=$(get_mounts_under_path $target_path)
+    mounted_paths=$(get_mounts_under_path "$target_path")
     
-    if [[ -z $mounted_paths ]]; then
-        debug No mounts found under $target_path
+    if [[ -z "$mounted_paths" ]]; then
+        debug "No mounts found under $target_path"
         return 0
     fi
     
-    info Found existing mounts under $target_path, unmounting...
+    info "Found existing mounts under $target_path, unmounting..."
     
     # Disable swap files under target path first
     while read -r mp; do
-        if [[ -n $mp ]]; then
+        if [[ -n "$mp" ]]; then
             # Check for swap files in this mount
             local swap_files
-            swap_files=$(swapon --show=NAME --noheadings 2>/dev/null | grep ^${mp}/)
-            if [[ -n $swap_files ]]; then
+            swap_files=$(swapon --show=NAME --noheadings 2>/dev/null | grep "^${mp}/" || true)
+            if [[ -n "$swap_files" ]]; then
                 while read -r swap_file; do
-                    if [[ -n $swap_file ]]; then
-                        info Disabling swap: $swap_file
-                        swapoff $swap_file 2>/dev/null || warn Failed to disable swap: $swap_file
+                    if [[ -n "$swap_file" ]]; then
+                        info "Disabling swap: $swap_file"
+                        swapoff "$swap_file" 2>/dev/null || warn "Failed to disable swap: $swap_file"
                     fi
-                done <<< $swap_files
+                done <<< "$swap_files"
             fi
         fi
-    done <<< $mounted_paths
+    done <<< "$mounted_paths"
     
     # Unmount in reverse order (deepest first)
     local unmount_failed=0
     while read -r mp; do
-        if [[ -n $mp ]]; then
-            info Unmounting: $mp
+        if [[ -n "$mp" ]]; then
+            info "Unmounting: $mp"
             
             # Try normal unmount first
-            if umount $mp 2>/dev/null; then
-                success Unmounted: $mp
+            if umount "$mp" 2>/dev/null; then
+                success "Unmounted: $mp"
             else
-                warn Failed to unmount $mp, trying lazy unmount...
-                if umount -l $mp 2>/dev/null; then
-                    success Lazy unmounted: $mp
+                warn "Failed to unmount $mp, trying lazy unmount..."
+                if umount -l "$mp" 2>/dev/null; then
+                    success "Lazy unmounted: $mp"
                 else
-                    if [[ $force == yes ]]; then
-                        warn Forcing unmount of $mp...
-                        umount -f $mp 2>/dev/null || warn Force unmount failed: $mp
+                    if [[ "$force" == yes ]]; then
+                        warn "Forcing unmount of $mp..."
+                        umount -f "$mp" 2>/dev/null || warn "Force unmount failed: $mp"
                     else
-                        error Failed to unmount $mp. Use force mode or check for processes using this mount.
+                        error "Failed to unmount $mp. Use force mode or check for processes using this mount."
                     fi
                     unmount_failed=1
                 fi
             fi
         fi
-    done <<< $mounted_paths
+    done <<< "$mounted_paths"
     
     if [[ $unmount_failed -eq 1 ]]; then
         return 1
     fi
     
-    success All mounts under $target_path have been unmounted
+    success "All mounts under $target_path have been unmounted"
     return 0
 }
 
@@ -402,69 +408,70 @@ validate_and_prepare_install_root() {
     local install_root=$1
     debug validate_and_prepare_install_root called with: $install_root
     
-    info Validating install root: $install_root
+    info "Validating install root: $install_root"
     
     # Check if install_root or any subdirectories are mounted
-    if check_mounts_under_path $install_root; then
-        warn Found existing mounts under $install_root
+    if check_mounts_under_path "$install_root"; then
+        warn "Found existing mounts under $install_root"
         
         # List all mounts for user visibility
-        info Existing mounts:
-        get_mounts_under_path $install_root | while read -r mp; do
-            if [[ -n $mp ]]; then
+        info "Existing mounts:"
+        get_mounts_under_path "$install_root" | while read -r mp; do
+            if [[ -n "$mp" ]]; then
                 local mount_info
-                mount_info=$(findmnt -n -o SOURCE,FSTYPE,OPTIONS $mp 2>/dev/null | head -n1)
-                info  $mp: $mount_info
+                mount_info=$(findmnt -n -o SOURCE,FSTYPE,OPTIONS "$mp" 2>/dev/null | head -n1)
+                info "  $mp: $mount_info"
             fi
         done
         
         # Unmount all existing mounts
-        unmount_all_under_path $install_root no
+        unmount_all_under_path "$install_root" no
     fi
     
     # Verify no mounts remain
-    if check_mounts_under_path $install_root; then
-        error Failed to unmount all mounts under $install_root
+    if check_mounts_under_path "$install_root"; then
+        error "Failed to unmount all mounts under $install_root"
     fi
     
     # Clean up the directory
-    if [[ -e $install_root ]]; then
-        if [[ -L $install_root ]]; then
-            info Removing symlink: $install_root
-            rm -f $install_root
-        elif [[ -d $install_root ]]; then
-            info Cleaning install root directory: $install_root
+    if [[ -e "$install_root" ]]; then
+        if [[ -L "$install_root" ]]; then
+            info "Removing symlink: $install_root"
+            rm -f "$install_root"
+        elif [[ -d "$install_root" ]]; then
+            info "Cleaning install root directory: $install_root"
             # Check if directory is empty
-            if [[ -n $(ls -A $install_root 2>/dev/null) ]]; then
-                warn Directory $install_root is not empty, removing contents...
-                rm -rf ${install_root:?}/* 2>/dev/null || true
-                rm -rf ${install_root:?}/.* 2>/dev/null || true
+            if [[ -n $(ls -A "$install_root" 2>/dev/null) ]]; then
+                warn "Directory $install_root is not empty, removing contents..."
+                rm -rf "${install_root:?}"/* 2>/dev/null || true
+                rm -rf "${install_root:?}"/.[!.]* 2>/dev/null || true
+                rm -rf "${install_root:?}"/..?* 2>/dev/null || true
             fi
             # Try to remove directory
-            if ! rmdir $install_root 2>/dev/null; then
-                warn Could not remove $install_root, forcing removal...
-                rm -rf $install_root 2>/dev/null || true
+            if ! rmdir "$install_root" 2>/dev/null; then
+                warn "Could not remove $install_root, forcing removal..."
+                rm -rf "$install_root" 2>/dev/null || true
             fi
-        elif [[ -f $install_root ]]; then
-            warn $install_root is a file, removing...
-            rm -f $install_root
+        elif [[ -f "$install_root" ]]; then
+            warn "$install_root is a file, removing..."
+            rm -f "$install_root"
         fi
     fi
     
     # Create fresh directory
-    info Creating fresh install root directory: $install_root
-    mkdir -p $install_root
+    info "Creating fresh install root directory: $install_root"
+    mkdir -p "$install_root"
     
     # Verify directory was created and is empty
-    if [[ ! -d $install_root ]]; then
-        error Failed to create install root directory: $install_root
+    if [[ ! -d "$install_root" ]]; then
+        error "Failed to create install root directory: $install_root"
     fi
     
-    if [[ -n $(ls -A $install_root 2>/dev/null) ]]; then
-        error Install root directory is not empty after cleanup: $install_root
+    if [[ -n $(ls -A "$install_root" 2>/dev/null) ]]; then
+        error "Install root directory is not empty after cleanup: $install_root"
     fi
     
-    success Install root validated and prepared: $install_root
+    success "Install root validated and prepared: $install_root"
 }
 trap cleanup_on_error ERR
 
