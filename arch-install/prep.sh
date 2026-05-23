@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -uo pipefail
 
 # Enable debug mode if DEBUG=1
@@ -379,6 +379,9 @@ info "Fstab generated"
 # Copy the installation folder to the new system for the second stage
 info "Copying installation folder to $INSTALL_ROOT/root/arch-install..."
 cp -r "${SCRIPT_DIR}" "$INSTALL_ROOT/root/arch-install"
+chmod +x "$INSTALL_ROOT/root/arch-install/post.sh"
+chmod +x "$INSTALL_ROOT/root/arch-install/prep.sh"
+chmod +x "$INSTALL_ROOT/root/arch-install/bootstrap.sh"
 info "Installation folder copied"
 
 # Save installation metadata for post.sh

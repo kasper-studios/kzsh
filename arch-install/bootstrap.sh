@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -uo pipefail
 
 # Enable debug mode if DEBUG=1
