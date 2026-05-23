@@ -160,12 +160,19 @@ confirm_strict() {
     fi
     
     # Check if running in interactive mode
-    if [[ ! -t 0 ]]; then
-        error "Non-interactive mode detected. Use --yes flag to auto-confirm."
+    if [[ ! -t 0 ]] && [[ ! -e /dev/tty ]]; then
+        error "Non-interactive mode detected and no TTY available. Use --yes flag to auto-confirm."
     fi
     
-    echo -n "Type 'ERASE' to continue: "
-    read -r confirmation
+    # Use /dev/tty for input when stdin is redirected (e.g., piped from curl)
+    if [[ ! -t 0 ]] && [[ -e /dev/tty ]]; then
+        echo -n "Type 'ERASE' to continue: " > /dev/tty
+        read -r confirmation < /dev/tty
+    else
+        echo -n "Type 'ERASE' to continue: "
+        read -r confirmation
+    fi
+    
     if [[ "$confirmation" != "ERASE" ]]; then
         error "Aborted by user."
     fi

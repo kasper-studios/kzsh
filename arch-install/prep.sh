@@ -81,31 +81,26 @@ info "Arguments parsed: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME, PROF
 # INTERACTIVE MODE
 # ============================================
 if [[ -z "$DISK" ]]; then
-    info "Available disks:"
-    # Get list of block devices, filter out loops and show only disks
-    lsblk -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null | awk 'NR==1 || /disk/' || echo "No disks found"
-    echo
-    read -rp "Target disk (example: /dev/sda): " DISK
-    read -rp "Hostname [$HOSTNAME]: " input_host
-    HOSTNAME="${input_host:-$HOSTNAME}"
-    read -rp "Username [$USERNAME]: " input_user
-    USERNAME="${input_user:-$USERNAME}"
-    read -rp "Filesystem (btrfs/ext4) [$FILESYSTEM]: " input_fs
-    FILESYSTEM="${input_fs:-$FILESYSTEM}"
-    read -rp "Swap size in MB (leave empty for none): " SWAP_SIZE
-    read -rp "Install KZSH after setup? (y/n) [$INSTALL_KZSH]: " input_kzsh
-    input_kzsh="${input_kzsh:-$INSTALL_KZSH}"
-    # Normalize input
-    if [[ "$input_kzsh" =~ ^(y|yes|Y|YES)$ ]]; then
-        INSTALL_KZSH="yes"
-    elif [[ "$input_kzsh" =~ ^(n|no|N|NO)$ ]]; then
-        INSTALL_KZSH="no"
-    else
-        INSTALL_KZSH="yes"
-    fi
+    info "Entering interactive mode..."
+    info "No disk specified, interactive mode required."
+    info ""
+    info "Please run the installer with parameters instead:"
+    info "  curl -L https://raw.githubusercontent.com/kasper-studios/kzsh/main/arch-install/bootstrap.sh | bash -s -- \\"
+    info "    --disk /dev/sda \\"
+    info "    --hostname myhostname \\"
+    info "    --user myuser \\"
+    info "    --profile desktop-sddm-niri \\"
+    info "    --fs btrfs \\"
+    info "    --swap 4096 \\"
+    info "    --kzsh yes"
+    info ""
+    info "Available profiles: minimal, base, dev, desktop-gnome, desktop-kde, desktop-sddm-niri"
+    info "Available filesystems: btrfs, ext4"
+    info ""
+    error "Interactive mode is not supported when running via curl pipe. Please use command-line arguments."
 fi
 
-info "Interactive mode completed: DISK=$DISK"
+info "Configuration: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME, PROFILE=$PROFILE"
 
 # ============================================
 # VALIDATION
@@ -172,6 +167,9 @@ info "Starting confirmation prompt..."
 export AUTO_CONFIRM
 confirm_strict "$DISK"
 info "Confirmation passed"
+
+# Enable cleanup on error after user confirmation
+export CLEANUP_ENABLED=1
 
 info "Partitioning $DISK..."
 
