@@ -186,13 +186,24 @@ kupdate() {
   print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  if [[ ! -d "${KZSH_DIR}/.git" ]]; then
+  # Find the repo directory
+  local repo_dir=""
+  if [[ -L "${KZSH_DIR}" ]]; then
+    # KZSH_DIR is a symlink, find the real repo
+    repo_dir=$(readlink -f "${KZSH_DIR}/../..")
+  elif [[ -d "${KZSH_DIR}/.git" ]]; then
+    # Old installation, KZSH_DIR itself is a git repo
+    repo_dir="${KZSH_DIR}"
+  elif [[ -d "$HOME/.kzsh-repo/.git" ]]; then
+    # New installation, repo is in ~/.kzsh-repo
+    repo_dir="$HOME/.kzsh-repo"
+  else
     print -P "%F{red}✗ Not a git repository%f"
     print -P "%F{242}KZSH was not installed via git clone%f"
     return 1
   fi
   
-  cd "${KZSH_DIR}" || return 1
+  cd "$repo_dir" || return 1
   
   print -P "%F{242}Fetching updates from GitHub...%f"
   if ! git fetch origin main --quiet 2>/dev/null; then
@@ -241,7 +252,7 @@ kupdate() {
     echo "$(date +%s)" > "${KZSH_DIR}/.last_update"
   else
     print -P "%F{red}✗ Failed to update KZSH%f"
-    print -P "%F{242}Try manually: cd ~/.config/kzsh && git pull%f"
+    print -P "%F{242}Try manually: cd $repo_dir && git pull%f"
     return 1
   fi
 }

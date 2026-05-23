@@ -5,8 +5,21 @@
 local auto_update=$(kcfg get "auto_update" 2>/dev/null)
 [[ "$auto_update" == "no" ]] && return 0
 
-# Check if we're in a git repository
-[[ ! -d "${KZSH_DIR}/.git" ]] && return 0
+# Find the repo directory
+local repo_dir=""
+if [[ -L "${KZSH_DIR}" ]]; then
+    # KZSH_DIR is a symlink, find the real repo
+    repo_dir=$(readlink -f "${KZSH_DIR}/../..")
+elif [[ -d "${KZSH_DIR}/.git" ]]; then
+    # Old installation, KZSH_DIR itself is a git repo
+    repo_dir="${KZSH_DIR}"
+elif [[ -d "$HOME/.kzsh-repo/.git" ]]; then
+    # New installation, repo is in ~/.kzsh-repo
+    repo_dir="$HOME/.kzsh-repo"
+else
+    # Not a git repository
+    return 0
+fi
 
 # Check last update time (once per day)
 local update_file="${KZSH_DIR}/.last_update"
@@ -25,7 +38,7 @@ fi
 
 # Update KZSH in background
 (
-    cd "${KZSH_DIR}" || exit
+    cd "$repo_dir" || exit
     
     # Fetch updates
     git fetch origin main --quiet 2>/dev/null || exit
@@ -37,21 +50,7 @@ fi
     if [[ "$local_commit" != "$remote_commit" ]]; then
         # Updates available
         print -P "\n%F{39}📦 KZSH updates available!%f"
-        print -P "%F{242}Updating from GitHub...%f"
-        
-        # Stash local changes if any
-        if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-            git stash push -m "Auto-stash before update $(date)" --quiet 2>/dev/null
-        fi
-        
-        # Pull updates
-        if git pull origin main --quiet 2>/dev/null; then
-            print -P "%F{32}✓ KZSH updated successfully!%f"
-            print -P "%F{242}Restart your shell to apply changes: exec zsh%f\n"
-        else
-            print -P "%F{31}✗ Failed to update KZSH%f"
-            print -P "%F{242}Run 'cd ~/.config/kzsh && git pull' manually%f\n"
-        fi
+        print -P "%F{242}Run 'kupdate' to update%f\n"
     fi
     
     # Update last check time

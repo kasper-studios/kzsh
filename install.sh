@@ -33,18 +33,42 @@ if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! com
 fi
 
 # 2. Clone or Update
-TMP_DIR=$(mktemp -d)
-print_color "📂 Downloading repository..."
-git clone "$REPO_URL" "$TMP_DIR"
+REPO_DIR="$HOME/.kzsh-repo"
 
-print_color "📦 Installing files..."
-mkdir -p "$INSTALL_DIR"
-# Move contents from repo's .config/kzsh to ~/.config/kzsh
-cp -r "$TMP_DIR/.config/kzsh/." "$INSTALL_DIR/"
-# Move .zshrc if it exists in repo
-[[ -f "$TMP_DIR/.zshrc" ]] && cp "$TMP_DIR/.zshrc" "$HOME/.zshrc"
+if [[ -d "$REPO_DIR/.git" ]]; then
+  print_color "📂 Updating existing installation..."
+  cd "$REPO_DIR"
+  git stash push -m "Auto-stash before update" --quiet 2>/dev/null || true
+  git pull origin main
+else
+  print_color "📂 Cloning repository..."
+  # Remove old repo if exists but not a git repo
+  if [[ -d "$REPO_DIR" ]] && [[ ! -d "$REPO_DIR/.git" ]]; then
+    print_color "⚠️  Backing up old installation..."
+    mv "$REPO_DIR" "$REPO_DIR.backup.$(date +%s)"
+  fi
+  
+  # Clone entire repo to ~/.kzsh-repo
+  git clone "$REPO_URL" "$REPO_DIR"
+fi
 
-rm -rf "$TMP_DIR"
+# Create symlink from ~/.config/kzsh to repo's .config/kzsh
+print_color "🔗 Creating symlink..."
+mkdir -p "$HOME/.config"
+
+# Remove old installation if it's not a symlink
+if [[ -e "$INSTALL_DIR" ]] && [[ ! -L "$INSTALL_DIR" ]]; then
+  print_color "⚠️  Backing up old ~/.config/kzsh..."
+  mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
+fi
+
+# Create symlink
+ln -sf "$REPO_DIR/.config/kzsh" "$INSTALL_DIR"
+
+# Copy .zshrc if it exists and user doesn't have one
+if [[ -f "$REPO_DIR/.zshrc" ]] && [[ ! -f "$HOME/.zshrc" ]]; then
+  cp "$REPO_DIR/.zshrc" "$HOME/.zshrc"
+fi
 
 # 3. Ensure entrypoint in .zshrc
 if [[ ! -f "$HOME/.zshrc" ]]; then
