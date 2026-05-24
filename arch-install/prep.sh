@@ -384,6 +384,8 @@ cp -r "${SCRIPT_DIR}" "$INSTALL_ROOT/root/arch-install"
 chmod +x "$INSTALL_ROOT/root/arch-install/post.sh"
 chmod +x "$INSTALL_ROOT/root/arch-install/prep.sh"
 chmod +x "$INSTALL_ROOT/root/arch-install/bootstrap.sh"
+chmod +x "$INSTALL_ROOT/root/arch-install/fix-boot.sh"
+chmod +x "$INSTALL_ROOT/root/arch-install/verify.sh"
 info "Installation folder copied"
 
 # Save installation metadata for post.sh
