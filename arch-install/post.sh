@@ -73,7 +73,7 @@ if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
     if [[ "$BOOT_MODE" != "uefi" ]]; then
         error "systemd-boot requires UEFI mode"
     fi
-    
+
     info "Installing systemd-boot..."
     bootctl install
 
@@ -82,8 +82,16 @@ if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
     mkdir -p /boot/EFI/Linux
 
     # Get UUID of the ROOT partition
-    ROOT_PART=$(findmnt -no SOURCE /)
+    # Strip subvolume suffix from findmnt output (e.g. /dev/sda2[/@] -> /dev/sda2)
+    ROOT_PART=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
     ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+
+    if [[ -z "$ROOT_UUID" ]]; then
+        error "Could not determine root partition UUID. ROOT_PART=$ROOT_PART"
+    fi
+
+    info "Root partition: $ROOT_PART"
+    info "Root UUID: $ROOT_UUID"
 
     cat > /boot/loader/loader.conf << EOF
 default arch.conf
@@ -102,35 +110,40 @@ EOF
     INITRD_LINES="initrd  /initramfs-linux.img"
     if [[ -f /boot/intel-ucode.img ]]; then
         INITRD_LINES="initrd  /intel-ucode.img\n$INITRD_LINES"
+        info "Intel microcode detected"
     fi
     if [[ -f /boot/amd-ucode.img ]]; then
         INITRD_LINES="initrd  /amd-ucode.img\n$INITRD_LINES"
+        info "AMD microcode detected"
     fi
 
     printf "title   Arch Linux\nlinux   /vmlinuz-linux\n%b\noptions %s\n" \
         "$INITRD_LINES" "$KERNEL_OPTS" > /boot/loader/entries/arch.conf
 
+    info "Boot entry written:"
+    cat /boot/loader/entries/arch.conf
+
 elif [[ "$BOOTLOADER" == "grub" ]]; then
     info "Installing GRUB..."
-    
+
     if [[ "$BOOT_MODE" == "uefi" ]]; then
         grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch
     else
         if [[ -z "$DISK" ]]; then
             # Try to detect disk from root partition
-            ROOT_PART=$(findmnt -no SOURCE /)
+            ROOT_PART=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
             DISK=$(lsblk -no PKNAME "$ROOT_PART" | head -n1)
             DISK="/dev/$DISK"
         fi
         info "Installing GRUB to $DISK (BIOS mode)"
         grub-install --target=i386-pc "$DISK"
     fi
-    
+
     # Configure GRUB for BTRFS if needed
     if [[ "$FILESYSTEM" == "btrfs" ]]; then
         sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/&rootflags=subvol=@ /' /etc/default/grub
     fi
-    
+
     grub-mkconfig -o /boot/grub/grub.cfg
 else
     error "Unknown bootloader: $BOOTLOADER"
@@ -149,19 +162,20 @@ if [[ "$INSTALL_KZSH" == "yes" || "$INSTALL_KZSH" == "y" ]]; then
     info "============================================"
     info "Installing KZSH shell configuration framework"
     info "============================================"
-    
+
     # Install base dependencies if missing
     if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
         info "Installing base dependencies (git, zsh, curl)..."
         pacman -S --noconfirm git zsh curl
     fi
-    
+
     # Run install.sh as the created user
     info "Running KZSH installer for user $USERNAME..."
-    su - "$USERNAME" -c 'curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash'
-    
-    success "KZSH installed successfully for user $USERNAME!"
-    info "Next shell launch will show the KZSH banner and install mandatory packages."
+    su - "$USERNAME" -c 'curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash' || \
+        warn "KZSH auto-install failed in chroot (expected). Run manually after reboot: curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash"
+
+    info "KZSH setup attempted for user $USERNAME."
+    info "If it failed, run manually after reboot: curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash"
 else
     info "Skipping KZSH installation (set --kzsh yes to enable)"
 fi
@@ -190,7 +204,7 @@ info "  3. Reboot: reboot"
 info ""
 info "After reboot:"
 info "  - Login as: $USERNAME"
-info "  - KZSH will auto-configure on first shell launch"
+info "  - If KZSH not installed: curl -sL https://raw.githubusercontent.com/kasper-studios/kzsh/main/install.sh | bash"
 info "  - Install desktop: kpkg install desktop-niri"
 info ""
 success "Ready to reboot!"
