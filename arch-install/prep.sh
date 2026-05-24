@@ -277,6 +277,10 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     if [[ -n "$SWAP_SIZE" ]]; then
         btrfs subvolume create "$INSTALL_ROOT/@swap" || error "Failed to create @swap subvolume"
     fi
+    
+    # Create boot directory inside @ subvolume before unmounting
+    info "Creating /boot directory in @ subvolume..."
+    mkdir -p "$INSTALL_ROOT/@/boot" || error "Failed to create /boot directory in @ subvolume"
 
     info "Unmounting and remounting with subvolumes..."
     umount "$INSTALL_ROOT" || error "Failed to unmount root partition"
