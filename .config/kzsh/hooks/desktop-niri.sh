@@ -5,21 +5,12 @@ echo "Configuring Niri desktop environment..."
 
 # ─── Ensure yay is available (needed for AUR packages) ────────────────────────
 _ensure_yay() {
-  if command -v yay &>/dev/null; then
-    return 0
-  fi
-  if command -v paru &>/dev/null; then
+  if command -v yay &>/dev/null || command -v paru &>/dev/null; then
     return 0
   fi
 
   echo "Installing yay (AUR helper)..."
-
-  if ! pacman -Qq base-devel &>/dev/null; then
-    sudo pacman -S --noconfirm --needed base-devel
-  fi
-  if ! pacman -Qq git &>/dev/null; then
-    sudo pacman -S --noconfirm --needed git
-  fi
+  sudo pacman -S --noconfirm --needed base-devel git
 
   local tmp
   tmp=$(mktemp -d)
@@ -27,34 +18,63 @@ _ensure_yay() {
   (cd "$tmp/yay" && makepkg -si --noconfirm)
   rm -rf "$tmp"
 
-  if command -v yay &>/dev/null; then
-    echo "✓ yay installed"
-  else
-    echo "✗ yay install failed, aborting"
-    exit 1
-  fi
+  command -v yay &>/dev/null || { echo "✗ yay install failed"; exit 1; }
+  echo "✓ yay installed"
 }
 
-# ─── Install AUR packages that pacman can't handle ────────────────────────────
+# ─── Install AUR packages ───────────────────────────────────────────────────────
 _install_aur_deps() {
   local aur_helper
-  if command -v yay &>/dev/null; then
-    aur_helper="yay"
-  elif command -v paru &>/dev/null; then
-    aur_helper="paru"
-  else
-    echo "✗ No AUR helper found"
-    exit 1
-  fi
+  command -v yay &>/dev/null && aur_helper="yay"
+  command -v paru &>/dev/null && aur_helper="paru"
+  [[ -z "$aur_helper" ]] && { echo "✗ No AUR helper found"; exit 1; }
 
   local aur_pkgs=(tofi quickshell-git)
   echo "Installing AUR packages: ${aur_pkgs[*]}..."
   "$aur_helper" -S --noconfirm --needed "${aur_pkgs[@]}"
 }
 
-# Run AUR setup
 _ensure_yay
 _install_aur_deps
+
+# ─── TTY1 autologin ────────────────────────────────────────────────────────────────
+echo "Setting up TTY1 autologin for $USER..."
+sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+sudo tee /etc/systemd/system/getty@tty1.service.d/autologin.conf > /dev/null << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+Type=simple
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable getty@tty1.service
+echo "✓ TTY1 autologin configured for $USER"
+
+# ─── niri-session autostart from shell profile ────────────────────────────────────
+NIRI_AUTOSTART_MARKER='# kzsh: niri-session autostart'
+
+# Pick the right login profile file
+if [[ -f "$HOME/.zprofile" ]]; then
+  PROFILE="$HOME/.zprofile"
+elif [[ -f "$HOME/.bash_profile" ]]; then
+  PROFILE="$HOME/.bash_profile"
+else
+  PROFILE="$HOME/.bash_profile"
+  touch "$PROFILE"
+fi
+
+if ! grep -qF "$NIRI_AUTOSTART_MARKER" "$PROFILE"; then
+  cat >> "$PROFILE" << 'AUTOSTART'
+
+# kzsh: niri-session autostart
+if [ -z "${WAYLAND_DISPLAY}" ] && [ "${XDG_VTNR}" = "1" ]; then
+  exec niri-session
+fi
+AUTOSTART
+  echo "✓ niri-session autostart added to $PROFILE"
+else
+  echo "⚠ niri-session autostart already in $PROFILE, skipping"
+fi
 
 # ─── Default Niri config ──────────────────────────────────────────────────────
 if [[ ! -f ~/.config/niri/config.kdl ]]; then
@@ -127,10 +147,6 @@ EOF
   mkdir -p ~/Pictures/Screenshots
 fi
 
-# ─── Disable KZSH TTY session manager (using SDDM instead) ───────────────────
-sed -i 's/auto_start_session: yes/auto_start_session: no/' \
-  "${KZSH_DIR:-$HOME/.config/kzsh}/config.yaml" 2>/dev/null || true
-
 # ─── DankMaterialShell ────────────────────────────────────────────────────────
 if ! command -v dank-shell &>/dev/null && [[ ! -f "$HOME/.config/quickshell/shell.qml" ]]; then
   echo "Installing DankMaterialShell..."
@@ -140,37 +156,13 @@ else
   echo "⚠ DankMaterialShell already installed, skipping"
 fi
 
-# ─── SDDM Wayland config ─────────────────────────────────────────────────────
-# niri.desktop is shipped by the niri package — no need to create it manually
-if [[ ! -f /etc/sddm.conf.d/wayland.conf ]]; then
-  echo "Configuring SDDM for Wayland..."
-  sudo mkdir -p /etc/sddm.conf.d
-  sudo tee /etc/sddm.conf.d/wayland.conf > /dev/null << 'EOF'
-[General]
-DisplayServer=wayland
-GreeterEnvironment=QT_WAYLAND_SHELL_INTEGRATION=layer-shell
-
-[Wayland]
-SessionDir=/usr/share/wayland-sessions
-EOF
-fi
-
-# ─── Enable SDDM ─────────────────────────────────────────────────────────────
-if ! systemctl is-enabled sddm &>/dev/null; then
-  echo "Enabling SDDM..."
-  sudo systemctl enable sddm
-fi
-
 # ─── Groups ───────────────────────────────────────────────────────────────────
 groups | grep -q video || sudo usermod -aG video "$USER"
 groups | grep -q input || sudo usermod -aG input "$USER"
 
 echo ""
 echo "✓ Niri desktop configured!"
-echo ""
-echo "Next steps:"
-echo "  1. Reboot: sudo reboot"
-echo "  2. SDDM will greet you, select Niri session"
+echo "  Reboot → TTY1 autologin → niri-session starts automatically"
 echo ""
 echo "Keybinds:"
 echo "  Super+T       - kitty"
