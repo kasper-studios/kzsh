@@ -214,6 +214,12 @@ if [[ "$BOOT_MODE" == "uefi" ]]; then
     
     info "Formatting EFI partition..."
     mkfs.fat -F32 "$BOOT_PART" || error "Failed to format EFI partition"
+    
+    # Verify ESP filesystem
+    if ! file -s "$BOOT_PART" | grep -q "FAT"; then
+        error "ESP partition $BOOT_PART is not FAT32 after formatting"
+    fi
+    info "ESP partition formatted successfully"
 else
     # BIOS: BIOS boot partition + Root partition
     info "Creating GPT label and partitions for BIOS..."
@@ -282,6 +288,7 @@ if [[ "$FILESYSTEM" == "btrfs" ]]; then
     mkdir -p "$INSTALL_ROOT/home" || error "Failed to create /home directory"
     mkdir -p "$INSTALL_ROOT/var/log" || error "Failed to create /var/log directory"
     mkdir -p "$INSTALL_ROOT/var/cache/pacman/pkg" || error "Failed to create /var/cache/pacman/pkg directory"
+    mkdir -p "$INSTALL_ROOT/boot" || error "Failed to create /boot directory"
     
     info "Mounting subvolumes..."
     mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$INSTALL_ROOT/home" || error "Failed to mount @home subvolume"
