@@ -37,6 +37,22 @@ kinstall() {
   print -P "Detected distro: %F{cyan}$KZSH_DISTRO%f"
   echo ""
 
+  # Phase 0: AUR helper (Arch only)
+  if [[ "$KZSH_DISTRO" == "arch" || "$KZSH_DISTRO" == "manjaro" || "$KZSH_DISTRO" == "endeavouros" ]]; then
+    if ! command -v yay >/dev/null 2>&1 && ! command -v paru >/dev/null 2>&1; then
+      echo ""
+      print -P "📦 Phase 0: Installing %F{cyan}yay%f (AUR helper)..."
+      local tmp_yay=$(mktemp -d)
+      git clone --depth=1 https://aur.archlinux.org/yay-bin.git "$tmp_yay" && \
+        (cd "$tmp_yay" && makepkg -si --noconfirm) && \
+        rm -rf "$tmp_yay" && \
+        print -P "✅ %F{green}yay installed!%f" || \
+        print -P "%F{red}✗ yay install failed, continuing without AUR helper%f"
+    else
+      print -P "✅ AUR helper already present, skipping."
+    fi
+  fi
+
   # Phase 1: Mandatory Runtime (distro-specific)
   echo "📦 Phase 1: Mandatory Runtime..."
   local mand_pkgs=$(kcfg get "profile_${KZSH_DISTRO}_mandatory")

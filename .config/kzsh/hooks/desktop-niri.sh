@@ -3,15 +3,6 @@
 
 echo "Configuring Niri desktop environment..."
 
-# Disable display managers (we'll use KZSH session manager)
-for dm in sddm gdm lightdm; do
-    if systemctl is-enabled "$dm" &>/dev/null; then
-        echo "Disabling $dm (using KZSH session manager instead)..."
-        sudo systemctl disable "$dm" 2>/dev/null || true
-        sudo systemctl stop "$dm" 2>/dev/null || true
-    fi
-done
-
 # Create default Niri config if it doesn't exist
 if [[ ! -f ~/.config/niri/config.kdl ]]; then
     echo "Creating default Niri config..."
@@ -40,8 +31,8 @@ layout {
 }
 
 binds {
-    Mod+T { spawn "alacritty"; }
-    Mod+D { spawn "fuzzel"; }
+    Mod+T { spawn "kitty"; }
+    Mod+D { spawn "tofi-run"; }
     Mod+Q { close-window; }
     Mod+Shift+E { quit; }
     
@@ -80,9 +71,16 @@ prefer-no-csd
 
 screenshot-path "~/Pictures/Screenshots/screenshot-%Y-%m-%d-%H-%M-%S.png"
 EOF
-    
-    # Create screenshots directory
     mkdir -p ~/Pictures/Screenshots
+fi
+
+# Install DankMaterialShell
+if [[ ! -d "$HOME/.local/share/danklinux" ]]; then
+    echo "Installing DankMaterialShell..."
+    curl -fsSL https://danklinux.com/install.sh | bash
+    echo "✓ DankMaterialShell installed"
+else
+    echo "⚠ DankMaterialShell already installed, skipping"
 fi
 
 # Configure SDDM for Wayland
@@ -99,41 +97,28 @@ SessionDir=/usr/share/wayland-sessions
 EOF
 fi
 
-# Enable SDDM if not already enabled
+# Enable SDDM
 if ! systemctl is-enabled sddm &>/dev/null; then
     echo "Enabling SDDM..."
     sudo systemctl enable sddm
 fi
 
-    mkdir -p ~/Pictures/Screenshots
-fi
-
-# Add user to video and input groups if not already
+# Add user to video and input groups
 if ! groups | grep -q video; then
-    echo "Adding user to video group..."
     sudo usermod -aG video "$USER"
 fi
-
 if ! groups | grep -q input; then
-    echo "Adding user to input group..."
     sudo usermod -aG input "$USER"
 fi
 
-echo "✓ Niri desktop environment configured successfully!"
-echo ""
-echo "KZSH Session Manager is now enabled!"
+echo "✓ Niri desktop configured!"
 echo ""
 echo "Next steps:"
-echo "  1. Reboot your system: sudo reboot"
-echo "  2. After login, KZSH will automatically show session selection"
-echo "  3. Select Niri to start the compositor"
+echo "  1. Reboot: sudo reboot"
+echo "  2. SDDM will greet you, select Niri session"
 echo ""
 echo "Keybinds:"
-echo "  Super+T - Open terminal (Alacritty)"
-echo "  Super+D - App launcher (Fuzzel)"
-echo "  Super+Q - Close window"
-echo "  Super+Shift+E - Exit Niri"
-echo ""
-echo "To disable auto-start: kcfg set auto_start_session no"
-echo ""
-echo "Note: You may need to log out and log back in for group changes to take effect."
+echo "  Super+T  - kitty"
+echo "  Super+D  - tofi launcher"
+echo "  Super+Q  - close window"
+echo "  Super+Shift+E - exit niri"

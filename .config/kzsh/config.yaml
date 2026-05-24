@@ -15,7 +15,7 @@ profile_arch_core: fastfetch btop tree rsync wget htop nano
 profile_arch_dev: nodejs npm docker docker-compose base-devel python python-pip rust go neovim
 profile_arch_desktop_gnome: gnome gnome-extra gdm
 profile_arch_desktop_kde: plasma-meta kde-applications sddm
-profile_arch_desktop_niri: niri sddm waybar alacritty mako fuzzel swaybg xorg-xwayland qt6-wayland qt5-wayland pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs
+profile_arch_desktop_niri: niri sddm kitty tofi mako swaybg xorg-xwayland qt6-wayland qt5-wayland qt6-declarative pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs quickshell-git
 profile_arch_media: chromium firefox discord mpv vlc gimp inkscape
 profile_arch_extra: steam wine obs-studio
 
@@ -35,6 +35,6 @@ profile_core: fastfetch btop tree rsync wget htop nano
 profile_dev: nodejs npm docker docker-compose build-essential python python-pip rust go neovim
 profile_desktop_gnome: gnome gnome-extra gdm
 profile_desktop_kde: plasma-meta kde-applications sddm
-profile_desktop_niri: niri sddm waybar alacritty mako fuzzel swaybg xorg-xwayland qt6-wayland qt5-wayland pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs
+profile_desktop_niri: niri sddm kitty tofi mako swaybg xorg-xwayland qt6-wayland qt5-wayland qt6-declarative pipewire pipewire-pulse pipewire-alsa wireplumber grim slurp wl-clipboard firefox thunar file-roller xdg-user-dirs quickshell-git
 profile_media: chromium firefox discord mpv vlc gimp inkscape
 profile_extra: steam wine obs-studio
