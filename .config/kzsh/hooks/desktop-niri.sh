@@ -74,8 +74,12 @@ EOF
     mkdir -p ~/Pictures/Screenshots
 fi
 
+# Disable KZSH TTY session manager (using SDDM instead)
+sed -i 's/auto_start_session: yes/auto_start_session: no/' \
+    "${KZSH_DIR:-$HOME/.config/kzsh}/config.yaml" 2>/dev/null || true
+
 # Install DankMaterialShell
-if [[ ! -d "$HOME/.local/share/danklinux" ]]; then
+if ! command -v dank-shell >/dev/null 2>&1 && [[ ! -f "$HOME/.config/quickshell/shell.qml" ]]; then
     echo "Installing DankMaterialShell..."
     curl -fsSL https://danklinux.com/install.sh | bash
     echo "✓ DankMaterialShell installed"
