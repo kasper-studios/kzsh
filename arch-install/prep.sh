@@ -87,18 +87,16 @@ if [[ -z "$DISK" ]]; then
     info "    --disk /dev/sda \\"
     info "    --hostname myhostname \\"
     info "    --user myuser \\"
-    info "    --profile desktop-sddm-niri \\"
     info "    --fs btrfs \\"
     info "    --swap 4096 \\"
     info "    --kzsh yes"
     info ""
-    info "Available profiles: minimal, base, dev, desktop-gnome, desktop-kde, desktop-sddm-niri"
     info "Available filesystems: btrfs, ext4"
     info ""
     error "Interactive mode is not supported when running via curl pipe. Please use command-line arguments."
 fi
 
-info "Configuration: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME, PROFILE=$PROFILE"
+info "Configuration: DISK=$DISK, HOSTNAME=$HOSTNAME, USERNAME=$USERNAME"
 
 # ============================================
 # VALIDATION
