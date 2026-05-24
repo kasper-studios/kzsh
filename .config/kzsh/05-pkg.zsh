@@ -31,22 +31,24 @@ kpkg() {
     for item in "${input_pkgs[@]}"; do
       case "$item" in
         core|dev|desktop|media|extra|desktop-*|desktop_*)
-          # Normalize profile name (replace _ with -)
-          local normalized_item="${item//_/-}"
-          
+          # Normalize for display (dashes)
+          local display_name="${item//_/-}"
+          # Normalize for yaml key lookup (underscores)
+          local key_name="${item//-/_}"
+
           # Try distro-specific profile first, then fallback to generic
-          local prof_name="profile_${KZSH_DISTRO}_${normalized_item}"
+          local prof_name="profile_${KZSH_DISTRO}_${key_name}"
           local prof_list=$(kcfg get "$prof_name")
           if [[ -z "$prof_list" ]]; then
-            prof_name="profile_${normalized_item}"
+            prof_name="profile_${key_name}"
             prof_list=$(kcfg get "$prof_name")
           fi
           if [[ -n "$prof_list" ]]; then
-            print -P "%F{39}📦 Loading profile: %B$normalized_item%b%f (%F{242}$KZSH_DISTRO%f)"
+            print -P "%F{39}📦 Loading profile: %B$display_name%b%f (%F{242}$KZSH_DISTRO%f)"
             final_pkgs+=($=prof_list)
-            installed_profiles+=("$normalized_item")
+            installed_profiles+=("$display_name")
           else
-            print -P "%F{242}Profile $normalized_item is empty, skipping.%f"
+            print -P "%F{242}Profile $display_name is empty, skipping.%f"
           fi
           ;;
         all)
