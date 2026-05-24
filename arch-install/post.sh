@@ -77,6 +77,10 @@ if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
     info "Installing systemd-boot..."
     bootctl install
 
+    # Ensure loader directories exist
+    mkdir -p /boot/loader/entries
+    mkdir -p /boot/EFI/Linux
+
     # Get UUID of the ROOT partition
     ROOT_PART=$(findmnt -no SOURCE /)
     ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
@@ -94,14 +98,17 @@ EOF
         KERNEL_OPTS="$KERNEL_OPTS rootflags=subvol=@"
     fi
 
-    cat > /boot/loader/entries/arch.conf << EOF
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /intel-ucode.img
-initrd  /amd-ucode.img
-initrd  /initramfs-linux.img
-options $KERNEL_OPTS
-EOF
+    # Add microcode based on CPU
+    INITRD_LINES="initrd  /initramfs-linux.img"
+    if [[ -f /boot/intel-ucode.img ]]; then
+        INITRD_LINES="initrd  /intel-ucode.img\n$INITRD_LINES"
+    fi
+    if [[ -f /boot/amd-ucode.img ]]; then
+        INITRD_LINES="initrd  /amd-ucode.img\n$INITRD_LINES"
+    fi
+
+    printf "title   Arch Linux\nlinux   /vmlinuz-linux\n%b\noptions %s\n" \
+        "$INITRD_LINES" "$KERNEL_OPTS" > /boot/loader/entries/arch.conf
 
 elif [[ "$BOOTLOADER" == "grub" ]]; then
     info "Installing GRUB..."
