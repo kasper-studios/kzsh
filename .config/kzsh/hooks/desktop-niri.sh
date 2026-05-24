@@ -87,6 +87,21 @@ else
     echo "⚠ DankMaterialShell already installed, skipping"
 fi
 
+# Create Niri desktop entry for SDDM if missing
+if [[ ! -f /usr/share/wayland-sessions/niri.desktop ]]; then
+    echo "Creating Niri desktop entry for SDDM..."
+    sudo mkdir -p /usr/share/wayland-sessions
+    sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null << 'EOF'
+[Desktop Entry]
+Name=Niri
+Comment=Scrollable tiling Wayland compositor
+Exec=niri-session
+Type=Application
+DesktopNames=niri
+EOF
+    echo "✓ Niri desktop entry created"
+fi
+
 # Configure SDDM for Wayland
 if [[ ! -f /etc/sddm.conf.d/wayland.conf ]]; then
     echo "Configuring SDDM for Wayland..."
