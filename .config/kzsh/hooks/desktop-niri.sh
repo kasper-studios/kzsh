@@ -37,6 +37,26 @@ _install_aur_deps() {
 _ensure_yay
 _install_aur_deps
 
+# ─── Wayland environment variables (environment.d) ────────────────────────────
+# These are picked up by systemd --user and imported into the session
+# properly, avoiding the "import-environment without variable names" warning.
+echo "Setting up Wayland environment variables..."
+mkdir -p ~/.config/environment.d
+cat > ~/.config/environment.d/wayland.conf << 'EOF'
+XDG_SESSION_TYPE=wayland
+XDG_SESSION_DESKTOP=niri
+XDG_CURRENT_DESKTOP=niri
+MOZ_ENABLE_WAYLAND=1
+QT_QPA_PLATFORM=wayland
+QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+ELECTRON_OZONE_PLATFORM_HINT=auto
+GDK_BACKEND=wayland,x11
+SDL_VIDEODRIVER=wayland
+CLUTTER_BACKEND=wayland
+NITROSOCK_WAYLAND=1
+EOF
+echo "✓ Wayland env vars written to ~/.config/environment.d/wayland.conf"
+
 # ─── TTY1 autologin ────────────────────────────────────────────────────────────────
 echo "Setting up TTY1 autologin for $USER..."
 sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -53,7 +73,6 @@ echo "✓ TTY1 autologin configured for $USER"
 # ─── niri-session autostart from shell profile ────────────────────────────────────
 NIRI_AUTOSTART_MARKER='# kzsh: niri-session autostart'
 
-# Pick the right login profile file
 if [[ -f "$HOME/.zprofile" ]]; then
   PROFILE="$HOME/.zprofile"
 elif [[ -f "$HOME/.bash_profile" ]]; then
