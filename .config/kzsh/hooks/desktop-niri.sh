@@ -14,7 +14,6 @@ _ensure_yay() {
 
   echo "Installing yay (AUR helper)..."
 
-  # base-devel is required to build yay
   if ! pacman -Qq base-devel &>/dev/null; then
     sudo pacman -S --noconfirm --needed base-devel
   fi
@@ -57,7 +56,7 @@ _install_aur_deps() {
 _ensure_yay
 _install_aur_deps
 
-# ─── Default Niri config ───────────────────────────────────────────────────────
+# ─── Default Niri config ──────────────────────────────────────────────────────
 if [[ ! -f ~/.config/niri/config.kdl ]]; then
   echo "Creating default Niri config..."
   mkdir -p ~/.config/niri
@@ -141,22 +140,8 @@ else
   echo "⚠ DankMaterialShell already installed, skipping"
 fi
 
-# ─── Niri desktop entry for SDDM ─────────────────────────────────────────────
-if [[ ! -f /usr/share/wayland-sessions/niri.desktop ]]; then
-  echo "Creating Niri desktop entry for SDDM..."
-  sudo mkdir -p /usr/share/wayland-sessions
-  sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null << 'EOF'
-[Desktop Entry]
-Name=Niri
-Comment=Scrollable tiling Wayland compositor
-Exec=niri-session
-Type=Application
-DesktopNames=niri
-EOF
-  echo "✓ Niri desktop entry created"
-fi
-
-# ─── SDDM Wayland config ──────────────────────────────────────────────────────
+# ─── SDDM Wayland config ─────────────────────────────────────────────────────
+# niri.desktop is shipped by the niri package — no need to create it manually
 if [[ ! -f /etc/sddm.conf.d/wayland.conf ]]; then
   echo "Configuring SDDM for Wayland..."
   sudo mkdir -p /etc/sddm.conf.d
