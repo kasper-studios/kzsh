@@ -132,7 +132,7 @@ check_boot_mode
 # Determine bootloader based on boot mode
 if [[ "$BOOTLOADER" == "auto" ]]; then
     if [[ "$BOOT_MODE" == "uefi" ]]; then
-        BOOTLOADER="grub"
+        BOOTLOADER="systemd-boot"
     else
         BOOTLOADER="grub"
     fi
