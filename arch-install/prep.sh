@@ -382,11 +382,21 @@ BOOT_MODE=$BOOT_MODE
 BOOTLOADER=$BOOTLOADER
 FILESYSTEM=$FILESYSTEM
 DISK=$DISK
+HOSTNAME=$HOSTNAME
+USERNAME=$USERNAME
 INSTALL_KZSH=$INSTALL_KZSH
 EOF
 info "Installation metadata saved"
 
 success "Stage 1 (Prep) complete."
-info "Now run: arch-chroot $INSTALL_ROOT /root/arch-install/post.sh --hostname $HOSTNAME --user $USERNAME --kzsh $INSTALL_KZSH"
+info "Now run: arch-chroot $INSTALL_ROOT /root/arch-install/post.sh"
+info ""
+info "Configuration saved to .install-meta:"
+info "  Hostname: $HOSTNAME"
+info "  Username: $USERNAME"
+info "  Install KZSH: $INSTALL_KZSH"
+info ""
+info "You can override these with arguments if needed:"
+info "  arch-chroot $INSTALL_ROOT /root/arch-install/post.sh --hostname NEWHOSTNAME --user NEWUSER"
 
 info "prep.sh completed successfully"

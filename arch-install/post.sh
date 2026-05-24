@@ -8,18 +8,17 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # Load installation metadata from prep.sh
 if [[ -f "${SCRIPT_DIR}/.install-meta" ]]; then
     source "${SCRIPT_DIR}/.install-meta"
+    info "Loaded configuration from .install-meta"
 else
     warn "Installation metadata not found, using defaults"
     BOOT_MODE="uefi"
     BOOTLOADER="grub"
     FILESYSTEM="btrfs"
     DISK=""
+    HOSTNAME="kasarch"
+    USERNAME="kasper"
     INSTALL_KZSH="yes"
 fi
-
-# Default values
-HOSTNAME="kasarch"
-USERNAME="kasper"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
