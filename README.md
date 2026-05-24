@@ -23,7 +23,7 @@ Bootstrap клонирует репо и запускает интерактив
 ### 1. После prep.sh — chroot и post.sh
 
 ```bash
-arch-chroot /mnt /root/arch-install/post.sh --hostname kasarch --user kasper   --kzsh yes
+arch-chroot /mnt /root/arch-install/post.sh --hostname kasarch --user kasper --kzsh yes
 ```
 
 ---
