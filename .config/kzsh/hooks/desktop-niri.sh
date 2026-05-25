@@ -1,7 +1,20 @@
 #!/bin/bash
 # Post-install hook for desktop-niri profile
 
+set -e  # Exit on error
+
 echo "Configuring Niri desktop environment..."
+
+# ─── Check prerequisites ────────────────────────────────────────────────────────
+if ! command -v pacman &>/dev/null; then
+  echo "✗ This hook is for Arch Linux only"
+  exit 1
+fi
+
+if [[ "$EUID" -eq 0 ]]; then
+  echo "✗ Do not run this hook as root"
+  exit 1
+fi
 
 # ─── Ensure yay is available (needed for AUR packages) ────────────────────────
 _ensure_yay() {
@@ -10,32 +23,66 @@ _ensure_yay() {
   fi
 
   echo "Installing yay (AUR helper)..."
-  sudo pacman -S --noconfirm --needed base-devel git
+  
+  # Check if base-devel is installed
+  if ! pacman -Qq base-devel &>/dev/null; then
+    sudo pacman -S --noconfirm --needed base-devel git || {
+      echo "✗ Failed to install base-devel"
+      return 1
+    }
+  fi
 
   local tmp
   tmp=$(mktemp -d)
-  git clone --depth=1 https://aur.archlinux.org/yay.git "$tmp/yay"
-  (cd "$tmp/yay" && makepkg -si --noconfirm)
+  
+  if ! git clone --depth=1 https://aur.archlinux.org/yay.git "$tmp/yay"; then
+    echo "✗ Failed to clone yay repository"
+    rm -rf "$tmp"
+    return 1
+  fi
+  
+  (cd "$tmp/yay" && makepkg -si --noconfirm) || {
+    echo "✗ Failed to build yay"
+    rm -rf "$tmp"
+    return 1
+  }
+  
   rm -rf "$tmp"
 
-  command -v yay &>/dev/null || { echo "✗ yay install failed"; exit 1; }
+  if ! command -v yay &>/dev/null; then
+    echo "✗ yay install failed"
+    return 1
+  fi
+  
   echo "✓ yay installed"
+  return 0
 }
 
 # ─── Install AUR packages ───────────────────────────────────────────────────────
 _install_aur_deps() {
   local aur_helper
-  command -v yay &>/dev/null && aur_helper="yay"
-  command -v paru &>/dev/null && aur_helper="paru"
-  [[ -z "$aur_helper" ]] && { echo "✗ No AUR helper found"; exit 1; }
+  if command -v yay &>/dev/null; then
+    aur_helper="yay"
+  elif command -v paru &>/dev/null; then
+    aur_helper="paru"
+  else
+    echo "✗ No AUR helper found"
+    return 1
+  fi
 
   local aur_pkgs=(tofi quickshell-git)
   echo "Installing AUR packages: ${aur_pkgs[*]}..."
-  "$aur_helper" -S --noconfirm --needed "${aur_pkgs[@]}"
+  
+  if ! "$aur_helper" -S --noconfirm --needed "${aur_pkgs[@]}"; then
+    echo "⚠ Some AUR packages failed to install, continuing..."
+  fi
 }
 
-_ensure_yay
-_install_aur_deps
+if ! _ensure_yay; then
+  echo "⚠ Failed to install yay, skipping AUR packages"
+else
+  _install_aur_deps
+fi
 
 # ─── Wayland environment variables (environment.d) ────────────────────────────
 # These are picked up by systemd --user and imported into the session
@@ -164,20 +211,27 @@ prefer-no-csd
 screenshot-path "~/Pictures/Screenshots/screenshot-%Y-%m-%d-%H-%M-%S.png"
 EOF
   mkdir -p ~/Pictures/Screenshots
+  echo "✓ Niri config created"
+else
+  echo "⚠ Niri config already exists, skipping"
 fi
 
 # ─── DankMaterialShell ────────────────────────────────────────────────────────
 if ! command -v dank-shell &>/dev/null && [[ ! -f "$HOME/.config/quickshell/shell.qml" ]]; then
   echo "Installing DankMaterialShell..."
-  curl -fsSL https://install.danklinux.com | sh
-  echo "✓ DankMaterialShell installed"
+  if curl -fsSL https://install.danklinux.com | sh; then
+    echo "✓ DankMaterialShell installed"
+  else
+    echo "⚠ DankMaterialShell installation failed, skipping"
+  fi
 else
   echo "⚠ DankMaterialShell already installed, skipping"
 fi
 
 # ─── Groups ───────────────────────────────────────────────────────────────────
-groups | grep -q video || sudo usermod -aG video "$USER"
-groups | grep -q input || sudo usermod -aG input "$USER"
+echo "Adding user to video and input groups..."
+groups | grep -q video || sudo usermod -aG video "$USER" || echo "⚠ Failed to add to video group"
+groups | grep -q input || sudo usermod -aG input "$USER" || echo "⚠ Failed to add to input group"
 
 echo ""
 echo "✓ Niri desktop configured!"

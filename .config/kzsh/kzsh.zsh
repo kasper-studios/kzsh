@@ -42,28 +42,65 @@ kcfg() {
 
   case "$1" in
     get)
+      if [[ -z "$2" ]]; then
+        echo "usage: kcfg get <key>"
+        return 1
+      fi
       awk -v k="$2" -F': *' '$1 == k {print $2}' "$cfg" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
       ;;
     set)
+      if [[ -z "$2" ]]; then
+        echo "usage: kcfg set <key> <value>"
+        return 1
+      fi
       local key="$2"; shift 2
       local value="$*"
+      
+      # Validate key format (no special chars except underscore and dash)
+      if [[ ! "$key" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "error: invalid key format '$key'"
+        return 1
+      fi
+      
       if grep -q "^$key:" "$cfg"; then
-        sed -i "s|^$key:.*|$key: $value|" "$cfg"
+        # Use sed with backup for cross-platform compatibility
+        if sed --version 2>&1 | grep -q GNU; then
+          sed -i "s|^$key:.*|$key: $value|" "$cfg"
+        else
+          sed -i '' "s|^$key:.*|$key: $value|" "$cfg"
+        fi
       else
         # Ensure file ends with newline before appending
-        [[ -n $(tail -c 1 "$cfg") ]] && echo "" >> "$cfg"
+        [[ -n $(tail -c 1 "$cfg" 2>/dev/null) ]] && echo "" >> "$cfg"
         echo "$key: $value" >> "$cfg"
       fi
       ;;
     list)
       local prefix="$2"
-      grep "^$prefix" "$cfg" | sed "s|^$prefix||"
+      if [[ -z "$prefix" ]]; then
+        cat "$cfg"
+      else
+        grep "^$prefix" "$cfg" | sed "s|^$prefix||"
+      fi
       ;;
     edit)
       ${EDITOR:-nvim} "$cfg" < /dev/tty
       ;;
+    validate)
+      # Basic YAML validation
+      if ! awk -F': *' 'NF > 0 && !/^#/ && !/^[[:space:]]*$/ {
+        if (NF < 2) {
+          print "Invalid line: " $0
+          exit 1
+        }
+      }' "$cfg"; then
+        echo "error: config.yaml has invalid format"
+        return 1
+      fi
+      echo "config.yaml is valid"
+      ;;
     *)
-      echo "usage: kcfg get <key> | kcfg set <key> <value> | kcfg list <prefix> | kcfg edit"
+      echo "usage: kcfg get <key> | kcfg set <key> <value> | kcfg list [prefix] | kcfg edit | kcfg validate"
       ;;
   esac
 }

@@ -2,6 +2,8 @@
 # KZSH Session Starter - Lightweight display manager replacement
 # Automatically starts the appropriate desktop environment based on installed profile
 
+set -e  # Exit on error
+
 # Only run on TTY1 and if not already in a graphical session
 if [[ "$(tty)" != "/dev/tty1" ]] || [[ -n "$DISPLAY" ]] || [[ -n "$WAYLAND_DISPLAY" ]]; then
     return 0
@@ -15,6 +17,17 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
+
+# Error handler
+handle_error() {
+    echo -e "${RED}✗ Session failed to start${NC}"
+    echo -e "${YELLOW}Check logs: journalctl --user -xe${NC}"
+    echo ""
+    read -p "Press Enter to return to shell..."
+    return 1
+}
+
+trap handle_error ERR
 
 clear
 
@@ -118,10 +131,19 @@ case "$choice" in
                     ;;
             esac
             
+            # Verify command exists before exec
+            if ! command -v $cmd >/dev/null 2>&1; then
+                echo -e "${RED}✗ Command not found: $cmd${NC}"
+                handle_error
+                return 1
+            fi
+            
             # Start the session
             exec $cmd
         else
             echo -e "${RED}Invalid choice${NC}"
+            sleep 1
+            exec bash "$0"
         fi
         ;;
     s|S)

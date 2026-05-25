@@ -95,10 +95,18 @@ kpkg() {
     arch|manjaro|endeavouros)
       # Package mapping (Ubuntu -> Arch)
       local arch_pkgs=()
+      local aur_pkgs=()
+      
       for p in "${final_pkgs[@]}"; do
         case "$p" in
           build-essential) arch_pkgs+=("base-devel") ;;
-          *)               arch_pkgs+=("$p") ;;
+          # AUR packages (need AUR helper)
+          tofi|quickshell-git|yay|paru)
+            aur_pkgs+=("$p")
+            ;;
+          *)
+            arch_pkgs+=("$p")
+            ;;
         esac
       done
 
@@ -110,10 +118,23 @@ kpkg() {
 
       case "$action" in
         install)
-          if [[ "$helper" == "pacman" ]]; then
-            _ksudo pacman -S --noconfirm "${arch_pkgs[@]}"
-          else
-            "$helper" -S --noconfirm "${arch_pkgs[@]}"
+          # Install official packages first
+          if [[ ${#arch_pkgs[@]} -gt 0 ]]; then
+            if [[ "$helper" == "pacman" ]]; then
+              _ksudo pacman -S --noconfirm --needed "${arch_pkgs[@]}"
+            else
+              "$helper" -S --noconfirm --needed "${arch_pkgs[@]}"
+            fi
+          fi
+          
+          # Install AUR packages if AUR helper available
+          if [[ ${#aur_pkgs[@]} -gt 0 ]]; then
+            if [[ "$helper" == "pacman" ]]; then
+              print -P "%F{yellow}⚠ AUR packages require yay or paru: ${aur_pkgs[*]}%f"
+              print -P "%F{242}Install yay first: kinstall%f"
+            else
+              "$helper" -S --noconfirm --needed "${aur_pkgs[@]}"
+            fi
           fi
           ;;
         update)

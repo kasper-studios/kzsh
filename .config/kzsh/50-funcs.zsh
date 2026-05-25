@@ -271,7 +271,21 @@ kupdate() {
   
   # Pull updates
   print -P "%F{242}Pulling updates...%f"
-  if git pull origin main --quiet 2>/dev/null; then
+  if git pull origin main 2>&1 | tee /tmp/kzsh-update.log; then
+    # Check for conflicts
+    if grep -q "CONFLICT" /tmp/kzsh-update.log; then
+      print -P "%F{red}✗ Merge conflicts detected!%f"
+      print -P "%F{yellow}Conflicts:%f"
+      git diff --name-only --diff-filter=U
+      echo ""
+      print -P "%F{242}Options:%f"
+      print -P "  1. Resolve manually: cd $repo_dir && git status"
+      print -P "  2. Abort and keep local: git merge --abort"
+      print -P "  3. Accept remote: git checkout --theirs . && git add . && git commit"
+      cd "$original_dir"
+      return 1
+    fi
+    
     print -P "%F{32}✓ KZSH updated successfully!%f"
     
     # Pop stash if we stashed changes
@@ -282,6 +296,7 @@ kupdate() {
         print -P "%F{32}✓ Local changes restored%f"
       else
         print -P "%F{red}⚠ Conflicts detected, check 'git stash list'%f"
+        print -P "%F{242}Your changes are saved in stash. Resolve conflicts manually.%f"
       fi
     fi
     
@@ -292,9 +307,13 @@ kupdate() {
     
     # Update last check time
     echo "$(date +%s)" > "${KZSH_DIR}/.last_update"
+    
+    # Clean up log
+    rm -f /tmp/kzsh-update.log
   else
     print -P "%F{red}✗ Failed to update KZSH%f"
     print -P "%F{242}Try manually: cd $repo_dir && git pull%f"
+    rm -f /tmp/kzsh-update.log
     cd "$original_dir"
     return 1
   fi
