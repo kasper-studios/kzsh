@@ -85,8 +85,6 @@ else
 fi
 
 # ─── Wayland environment variables (environment.d) ────────────────────────────
-# These are picked up by systemd --user and imported into the session
-# properly, avoiding the "import-environment without variable names" warning.
 echo "Setting up Wayland environment variables..."
 mkdir -p ~/.config/environment.d
 cat > ~/.config/environment.d/wayland.conf << 'EOF'
@@ -100,7 +98,6 @@ ELECTRON_OZONE_PLATFORM_HINT=auto
 GDK_BACKEND=wayland,x11
 SDL_VIDEODRIVER=wayland
 CLUTTER_BACKEND=wayland
-NITROSOCK_WAYLAND=1
 EOF
 echo "✓ Wayland env vars written to ~/.config/environment.d/wayland.conf"
 
@@ -117,29 +114,23 @@ sudo systemctl daemon-reload
 sudo systemctl enable getty@tty1.service
 echo "✓ TTY1 autologin configured for $USER"
 
-# ─── niri-session autostart from shell profile ────────────────────────────────────
+# ─── niri-session autostart ─────────────────────────────────────────────────────────
+# Write to .zshrc since KZSH starts zsh as interactive (non-login) shell.
+# Guard: only on TTY1, only if no Wayland session is already running.
 NIRI_AUTOSTART_MARKER='# kzsh: niri-session autostart'
+ZSHRC="$HOME/.zshrc"
 
-if [[ -f "$HOME/.zprofile" ]]; then
-  PROFILE="$HOME/.zprofile"
-elif [[ -f "$HOME/.bash_profile" ]]; then
-  PROFILE="$HOME/.bash_profile"
-else
-  PROFILE="$HOME/.bash_profile"
-  touch "$PROFILE"
-fi
-
-if ! grep -qF "$NIRI_AUTOSTART_MARKER" "$PROFILE"; then
-  cat >> "$PROFILE" << 'AUTOSTART'
+if ! grep -qF "$NIRI_AUTOSTART_MARKER" "$ZSHRC" 2>/dev/null; then
+  cat >> "$ZSHRC" << 'AUTOSTART'
 
 # kzsh: niri-session autostart
-if [ -z "${WAYLAND_DISPLAY}" ] && [ "${XDG_VTNR}" = "1" ]; then
+if [[ -z "$WAYLAND_DISPLAY" && "$XDG_VTNR" == "1" ]]; then
   exec niri-session
 fi
 AUTOSTART
-  echo "✓ niri-session autostart added to $PROFILE"
+  echo "✓ niri-session autostart added to $ZSHRC"
 else
-  echo "⚠ niri-session autostart already in $PROFILE, skipping"
+  echo "⚠ niri-session autostart already in $ZSHRC, skipping"
 fi
 
 # ─── Default Niri config ──────────────────────────────────────────────────────
