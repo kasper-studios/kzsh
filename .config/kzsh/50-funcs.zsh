@@ -13,11 +13,11 @@ clip() {
 
 search() {
   [[ -z "$1" ]] && { echo "usage: search <string>"; return 1; }
-  if command -v rg >/dev/null 2>&1; then
-    rg --color=always "$1" . | head -40 | bat --plain --color=always 2>/dev/null || rg --color=always "$1" . | head -40
-  else
-    grep -r --color=always "$1" . | head -40
-  fi
+   if command -v rg >/dev/null 2>&1; then
+     rg --color=always -F "$1" . | head -40 | bat --plain --color=always 2>/dev/null || rg --color=always -F "$1" . | head -40
+   else
+     grep -r --color=always -F "$1" . | head -40
+   fi
 }
 
 mkproj() {
@@ -126,18 +126,15 @@ _kpreflight__sudo() {
 _kpreflight_base() {
   local do_install="$1"  # yes|no
 
-  print -P "\n%F{39}%B🧪 kpreflight: base%b%f"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
   if [[ "$do_install" == "yes" ]]; then
     print -P "%F{39}Installing base GUI stack (safe):%f %F{242}pciutils mesa vulkan-icd-loader%f"
     _kpreflight__sudo pacman -S --noconfirm --needed pciutils mesa vulkan-icd-loader >/dev/null 2>&1 || \
       print -P "%F{yellow}⚠ Failed to install some base packages (continuing).%f"
   fi
 
+  # Check for GPU
   if ! command -v lspci >/dev/null 2>&1; then
-    print -P "%F{242}lspci not found (pciutils).%f"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print -P "%F{red}✗%f lspci not found (pciutils missing)"
     return 0
   fi
 
@@ -146,57 +143,252 @@ _kpreflight_base() {
   local gpu_count
   gpu_count=$(print -r -- "$gpus" | grep -c . 2>/dev/null || echo 0)
 
-  print -P "%F{39}GPU devices detected:%f $gpu_count"
-  if [[ -n "$gpus" ]]; then
-    print -P "%F{242}$gpus%f"
+  if [[ "$gpu_count" -gt 0 ]]; then
+    print -P "%F{green}✓%f GPU detected"
   else
-    print -P "%F{242}(no GPU lines detected via lspci)%f"
+    print -P "%F{red}✗%f GPU not detected"
   fi
 
-  if [[ "$gpu_count" -gt 1 ]]; then
-    print -P "%F{yellow}⚠ Hybrid/multi-GPU detected.%f"
-    print -P "%F{242}Wayland + hybrid NVIDIA/Optimus may require manual setup. No vendor drivers are installed automatically.%f"
+  # Check for session
+  if [[ -n "$XDG_SESSION_TYPE" ]]; then
+    print -P "%F{green}✓%f Session detected ($XDG_SESSION_TYPE)"
+  else
+    # Try to detect session type from logind
+    if loginctl show-session "$(loginctl | grep $(whoami) | awk '{print $1}')" -p Type --value 2>/dev/null | grep -q .; then
+      print -P "%F{green}✓%f Session detected (via logind)"
+    else
+      print -P "%F{red}✗%f Session not detected"
+    fi
   fi
-
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 _kpreflight_desktop() {
-  print -P "\n%F{39}%B🧪 kpreflight: desktop%b%f"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-  # Only checks/hints.
-  if command -v systemctl >/dev/null 2>&1; then
-    if systemctl list-unit-files 2>/dev/null | grep -q '^sddm\.service'; then
-      local enabled="no"
-      systemctl is-enabled sddm.service >/dev/null 2>&1 && enabled="yes"
-      print -P "%F{39}SDDM unit present:%f %F{242}(enabled: $enabled)%f"
-    fi
-  fi
-
-  # Session entry checks (non-fatal)
-  if [[ -d /usr/share/wayland-sessions ]]; then
-    local niri_entry="/usr/share/wayland-sessions/niri.desktop"
-    if [[ -f "$niri_entry" ]]; then
-      print -P "%F{green}✓%f wayland session entry: %F{242}$niri_entry%f"
+  # SDDM unit
+  if [ -f /usr/lib/systemd/system/sddm.service ]; then
+    print -P "%F{green}✓%f SDDM unit present"
+    if systemctl is-enabled sddm.service >/dev/null 2>&1; then
+      print -P "%F{green}✓%f SDDM unit enabled"
     else
-      print -P "%F{242}No niri.desktop in /usr/share/wayland-sessions yet (will be created by desktop-niri hook).%f"
+      print -P "%F{yellow}⚠%f SDDM unit disabled"
     fi
+  else
+    print -P "%F{red}✗%f SDDM unit missing"
   fi
 
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  # Niri desktop entry
+  if [ -f /usr/share/wayland-sessions/niri.desktop ]; then
+    print -P "%F{green}✓%f Niri desktop entry present"
+  else
+    print -P "%F{red}✗%f Niri desktop entry missing"
+  fi
 }
 
 # Placeholders (minimal, to avoid future bloat)
-_kpreflight_audio() { print -P "\n%F{39}%B🧪 kpreflight: audio%b%f"; print -P "%F{242}(not implemented yet)%f"; }
-_kpreflight_gaming() { print -P "\n%F{39}%B🧪 kpreflight: gaming%b%f"; print -P "%F{242}(not implemented yet)%f"; }
-_kpreflight_stream() { print -P "\n%F{39}%B🧪 kpreflight: stream%b%f"; print -P "%F{242}(not implemented yet)%f"; }
-_kpreflight_network() { print -P "\n%F{39}%B🧪 kpreflight: network%b%f"; print -P "%F{242}(not implemented yet)%f"; }
-_kpreflight_bluetooth() { print -P "\n%F{39}%B🧪 kpreflight: bluetooth%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+_kpreflight_audio() {
+  # PipeWire (user service)
+  if systemctl --user is-active pipewire.service >/dev/null 2>&1; then
+    print -P "%F{green}✓%f pipewire.service"
+  else
+    print -P "%F{red}✗%f pipewire.service"
+  fi
+
+  # WirePlumber (user service)
+  if systemctl --user is-active wireplumber.service >/dev/null 2>&1; then
+    print -P "%F{green}✓%f wireplumber.service"
+  else
+    print -P "%F{red}✗%f wireplumber.service"
+  fi
+
+  # ALSA
+  if [ -d /proc/asound ] && [ "$(ls -A /proc/asound 2>/dev/null)" ]; then
+    print -P "%F{green}✓%f ALSA devices found"
+  else
+    print -P "%F{red}✗%f ALSA no devices found"
+  fi
+
+  # PulseAudio compatibility (pactl)
+  if ! command -v pactl >/dev/null 2>&1; then
+    print -P "%F{yellow}⚠%f pactl not found"
+  elif ! pactl info >/dev/null 2>&1; then
+    print -P "%F{red}✗%f pactl failed"
+  else
+    print -P "%F{green}✓%f PulseAudio compatibility (pactl)"
+  fi
+}
+_kpreflight_gaming() {
+  # Vulkan support
+  if [ -d /usr/share/vulkan/icd.d ] && [ "$(ls -A /usr/share/vulkan/icd.d 2>/dev/null)" ]; then
+    print -P "%F{green}✓%f Vulkan support"
+  else
+    print -P "%F{red}✗%f Vulkan support missing"
+  fi
+
+  # Mesa drivers
+  if command -v glxinfo >/dev/null 2>&1; then
+    if glxinfo | grep -qi "mesa"; then
+      print -P "%F{green}✓%f Mesa drivers"
+    else
+      print -P "%F{yellow}⚠%f Non-Mesa OpenGL renderer"
+    fi
+  else
+    # glxinfo not installed, try to check via package
+    if kpkg check mesa >/dev/null 2>&1; then
+      print -P "%F{green}✓%f Mesa drivers (installed)"
+    else
+      print -P "%F{red}✗%f Mesa drivers not installed"
+    fi
+  fi
+
+  # GPU drivers (from lspci, we can check if the driver module is loaded)
+  # We'll reuse the GPU detection from base, but we don't have that info here.
+  # Instead, we can check for the presence of kernel modules for common drivers.
+  # This is a simplified check: if we have a GPU (from lspci) and the driver is loaded.
+  # We'll skip for now and just note that we checked GPU in base.
+  print -P "%F{blue}ℹ%f GPU drivers: see kpreflight base output"
+
+  # gamemode: check for gamemoded (daemon) or gamemoderun (command)
+  if systemctl --user is-active gamemoded >/dev/null 2>&1 || command -v gamemoderun >/dev/null 2>&1; then
+    print -P "%F{green}✓%f gamemode available"
+  else
+    print -P "%F{red}✗%f gamemode missing"
+  fi
+
+  # mangohud
+  if command -v mangohud >/dev/null 2>&1; then
+    print -P "%F{green}✓%f mangohud available"
+  else
+    print -P "%F{red}✗%f mangohud missing"
+  fi
+}
+_kpreflight_stream() {
+  # OBS Studio
+  if command -v obs >/dev/null 2>&1; then
+    print -P "%F{green}✓%f OBS Studio available"
+  else
+    print -P "%F{red}✗%f OBS Studio missing"
+  fi
+
+# PipeWire (for streaming, we need PipeWire)
+   if systemctl --user is-active pipewire.service >/dev/null 2>&1; then
+     print -P "%F{green}✓%f PipeWire running"
+   else
+     print -P "%F{red}✗%f PipeWire not running"
+   fi
+
+# xdg-desktop-portal
+   if systemctl --user is-active xdg-desktop-portal.service >/dev/null 2>&1; then
+     print -P "%F{green}✓%f xdg-desktop-portal active"
+   else
+     print -P "%F{red}✗%f xdg-desktop-portal inactive"
+   fi
+
+  # Screen capture capability (check if xdg-desktop-portal has a backend)
+  # We'll check for the presence of a backend: xdg-desktop-portal-wlr or xdg-desktop-portal-gnome
+  if command -v xdg-desktop-portal >/dev/null 2>&1; then
+    # Actually, we want to check if the service is active and if there is a backend installed.
+    # We'll check for common backends.
+    if [ -d /usr/share/xdg-desktop-portal/portals ] && [ "$(ls -A /usr/share/xdg-desktop-portal/portals 2>/dev/null)" ]; then
+      print -P "%F{green}✓%f Screen capture capable (backend available)"
+    else
+      print -P "%F{yellow}⚠%f xdg-desktop-portal active but no backend detected"
+    fi
+  else
+    print -P "%F{red}✗%f xdg-desktop-portal missing"
+  fi
+}
+_kpreflight_network() {
+  # NetworkManager
+  if systemctl is-active NetworkManager.service >/dev/null 2>&1; then
+    print -P "%F{green}✓%f NetworkManager active"
+  else
+    print -P "%F{red}✗%f NetworkManager inactive"
+  fi
+
+  # nmcli
+  if command -v nmcli >/dev/null 2>&1; then
+    print -P "%F{green}✓%f nmcli available"
+  else
+    print -P "%F{red}✗%f nmcli missing"
+  fi
+
+  # Internet connectivity
+  # Try to curl to archlinux.org with a timeout, if curl is available.
+  # Otherwise, try to open a TCP connection to 8.8.8.8:53 (DNS) or 1.1.1.1:53.
+  if command -v curl >/dev/null 2>&1; then
+    if curl -Is --connect-timeout 2 https://archlinux.org >/dev/null 2>&1; then
+      print -P "%F{green}✓%f internet reachable"
+    else
+      print -P "%F{red}✗%f internet unreachable"
+    fi
+  else
+    # Fallback: try to open TCP connection to 8.8.8.8:53
+    if timeout 3 bash -c "echo >/dev/tcp/8.8.8.8/53" 2>/dev/null; then
+      print -P "%F{green}✓%f internet reachable (TCP to 8.8.8.8:53)"
+    elif timeout 3 bash -c "echo >/dev/tcp/1.1.1.1/53" 2>/dev/null; then
+      print -P "%F{green}✓%f internet reachable (TCP to 1.1.1.1:53)"
+    else
+      print -P "%F{red}✗%f internet unreachable"
+    fi
+  fi
+
+  # DNS resolve
+  # Try to resolve archlinux.org using getent, drill, or nslookup
+  resolved=0
+  if command -v getent >/dev/null 2>&1; then
+    if getent hosts archlinux.org >/dev/null 2>&1; then
+      resolved=1
+    fi
+  elif command -v drill >/dev/null 2>&1; then
+    if drill archlinux.org >/dev/null 2>&1; then
+      resolved=1
+    fi
+  elif command -v nslookup >/dev/null 2>&1; then
+    if nslookup archlinux.org >/dev/null 2>&1; then
+      resolved=1
+    fi
+  fi
+
+  if [ $resolved -eq 1 ]; then
+    print -P "%F{green}✓%f DNS resolve (archlinux.org)"
+  else
+    print -P "%F{red}✗%f DNS resolve failed"
+  fi
+}
+_kpreflight_bluetooth() {
+  # Bluetooth service
+  if systemctl is-active bluetooth.service >/dev/null 2>&1; then
+    print -P "%F{green}✓%f Bluetooth service"
+  else
+    print -P "%F{red}✗%f Bluetooth service inactive"
+  fi
+
+  # bluetoothctl
+  if command -v bluetoothctl >/dev/null 2>&1; then
+    print -P "%F{green}✓%f bluetoothctl available"
+  else
+    print -P "%F{red}✗%f bluetoothctl missing"
+  fi
+
+  # Adapter present
+  if command -v bluetoothctl >/dev/null 2>&1; then
+    if bluetoothctl show | grep -q "Powered: yes"; then
+      print -P "%F{green}✓%f Adapter present and powered"
+    elif bluetoothctl list | grep -q "Controller"; then
+      print -P "%F{yellow}⚠%f Adapter present but powered off"
+    else
+      print -P "%F{red}✗%f No adapter detected"
+    fi
+  else
+    # bluetoothctl missing, skip adapter check
+    :
+  fi
+}
 
 kpreflight() {
   local profile="${1:-base}"
-  shift || true
+  if [[ $# -gt 0 ]]; then
+    shift
+  fi
 
   if ! _kpreflight__is_archish; then
     print -P "%F{242}kpreflight: skipping (unsupported distro: $KZSH_DISTRO)%f"
@@ -228,12 +420,14 @@ kpreflight() {
       _kpreflight_bluetooth
       ;;
     doctor)
-      # Runs only what exists; still intentionally limited.
+      # Runs all checks
       _kpreflight_base "no"
       _kpreflight_desktop
       _kpreflight_audio
       _kpreflight_network
       _kpreflight_bluetooth
+      _kpreflight_gaming
+      _kpreflight_stream
       ;;
     *)
       echo "usage: kpreflight base [--install] | desktop | audio | gaming | stream | network | bluetooth | doctor"
@@ -343,15 +537,17 @@ kupdate() {
 
   print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  print -P "%F{242}Fetching updates from GitHub...%f"
-  if ! git fetch origin main --quiet 2>/dev/null; then
+   print -P "%F{242}Fetching updates from GitHub...%f"
+   local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+   [[ -z "$default_branch" ]] && default_branch="main"
+   if ! git fetch origin $default_branch --quiet 2>/dev/null; then
     print -P "%F{red}✗ Failed to fetch updates%f"
     print -P "%F{242}Check your internet connection%f"
     return 1
   fi
 
   local local_commit=$(git rev-parse HEAD 2>/dev/null)
-  local remote_commit=$(git rev-parse origin/main 2>/dev/null)
+   local remote_commit=$(git rev-parse origin/$default_branch 2>/dev/null)
 
   if [[ "$local_commit" == "$remote_commit" ]]; then
     print -P "%F{32}✓ KZSH is already up to date!%f"
@@ -363,8 +559,8 @@ kupdate() {
   print -P "%F{242}Remote: $remote_commit%f"
   echo ""
 
-  print -P "%F{39}Changes:%f"
-  git log --oneline HEAD..origin/main | head -5
+   print -P "%F{39}Changes:%f"
+   git log --oneline HEAD..origin/$default_branch | head -5
   echo ""
 
   read -q "?Update KZSH? [y/N] " || { echo ""; return 0; }
@@ -377,8 +573,8 @@ kupdate() {
     has_changes=1
   fi
 
-  print -P "%F{242}Pulling updates...%f"
-  if git pull origin main 2>&1 | tee /tmp/kzsh-update.log; then
+   print -P "%F{242}Pulling updates...%f"
+   if git pull origin $default_branch 2>&1 | tee /tmp/kzsh-update.log; then
     if grep -q "CONFLICT" /tmp/kzsh-update.log; then
       print -P "%F{red}✗ Merge conflicts detected!%f"
       print -P "%F{yellow}Conflicts:%f"
