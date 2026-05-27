@@ -1,21 +1,25 @@
 #!/bin/bash
 # Post-install hook for desktop-kde profile
 
+set -e
+
 echo "Configuring KDE Plasma desktop environment..."
 
 # Enable SDDM if not already enabled
 if ! systemctl is-enabled sddm &>/dev/null; then
-    echo "Enabling SDDM..."
-    sudo systemctl enable sddm
+  echo "Enabling SDDM..."
+  sudo systemctl enable sddm
 fi
 
-# Add user to video group if not already
-if ! groups | grep -q video; then
-    echo "Adding user to video group..."
-    sudo usermod -aG video "$USER"
-fi
+# Add user to video and input groups if not already
+for group in video input; do
+  if ! groups | grep -qw "$group"; then
+    echo "Adding user to $group group..."
+    sudo usermod -aG "$group" "$USER" || warn "Failed to add user to $group group"
+  fi
+done
 
-echo "вњ“ KDE Plasma desktop environment configured successfully!"
+echo "KDE Plasma desktop environment configured successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Reboot your system: sudo reboot"

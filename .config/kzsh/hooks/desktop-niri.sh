@@ -26,11 +26,9 @@ _have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 _pac_install() {
   # Install packages via pacman with sudo if needed.
-  # Usage: _pac_install pkg1 pkg2 ...
   if [[ $# -eq 0 ]]; then
     return 0
   fi
-
   if [[ "$EUID" -ne 0 ]]; then
     sudo pacman -S --noconfirm --needed "$@"
   else
@@ -40,6 +38,41 @@ _pac_install() {
 
 _warn() { echo "WARN: $*"; }
 
+# ------------------------------
+# GPU Driver Detection (safe)
+# ------------------------------
+_install_gpu_drivers_safe() {
+  if ! _have_cmd lspci; then
+    _warn "lspci not found (pciutils not installed), skipping GPU detection"
+    return 0
+  fi
+
+  echo "Detecting GPU vendors (safe mode - no driver installation)..."
+  local gpus
+  gpus=$(lspci -nn 2>/dev/null | grep -Ei 'VGA compatible controller|3D controller|Display controller' || true)
+
+  if [[ -z "$gpus" ]]; then
+    echo "No discrete GPU detected or lspci output empty."
+    return 0
+  fi
+
+  # Detect NVIDIA
+  if echo "$gpus" | grep -qi 'nvidia'; then
+    _warn "NVIDIA GPU detected. Install manually: sudo pacman -S nvidia nvidia-utils"
+  fi
+
+  # Detect AMD
+  if echo "$gpus" | grep -qi 'amd\|ati'; then
+    _warn "AMD GPU detected. Install manually: sudo pacman -S mesa vulkan-radeon"
+  fi
+
+  # Detect Intel
+  if echo "$gpus" | grep -qi 'intel'; then
+    echo "Intel integrated graphics detected."
+  fi
+
+  echo "GPU detection complete. No drivers installed automatically (safe mode)."
+}
 
 # ------------------------------
 # AUR helper + AUR deps

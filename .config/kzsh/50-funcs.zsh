@@ -333,82 +333,52 @@ HELP
 }
 
 
-# --- UPDATE (kupdate) ---
 kupdate() {
-  # Save current directory
-  local original_dir="$PWD"
-  
-  print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  
-  # Find the repo directory
-  local repo_dir=""
-  if [[ -L "${KZSH_DIR}" ]]; then
-    # KZSH_DIR is a symlink, find the real repo
-    local link_target=$(readlink "${KZSH_DIR}")
-    if [[ "$link_target" == /* ]]; then
-      # Absolute path
-      repo_dir=$(cd "$(dirname "$link_target")/.." && pwd)
-    else
-      # Relative path
-      repo_dir=$(cd "$(dirname "${KZSH_DIR}")/$link_target/.." && pwd)
-    fi
-  elif [[ -d "${KZSH_DIR}/.git" ]]; then
-    # Old installation, KZSH_DIR itself is a git repo
-    repo_dir="${KZSH_DIR}"
-  elif [[ -d "$HOME/.kzsh-repo/.git" ]]; then
-    # New installation, repo is in ~/.kzsh-repo
-    repo_dir="$HOME/.kzsh-repo"
-  else
+  local repo_dir=$(kzsh_repo_dir)
+  [[ -z "$repo_dir" ]] && {
     print -P "%F{red}✗ Not a git repository%f"
     print -P "%F{242}KZSH was not installed via git clone%f"
     return 1
-  fi
-  
-  cd "$repo_dir" || return 1
-  
+  }
+
+  print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   print -P "%F{242}Fetching updates from GitHub...%f"
   if ! git fetch origin main --quiet 2>/dev/null; then
     print -P "%F{red}✗ Failed to fetch updates%f"
     print -P "%F{242}Check your internet connection%f"
-    cd "$original_dir"
     return 1
   fi
-  
+
   local local_commit=$(git rev-parse HEAD 2>/dev/null)
   local remote_commit=$(git rev-parse origin/main 2>/dev/null)
-  
+
   if [[ "$local_commit" == "$remote_commit" ]]; then
     print -P "%F{32}✓ KZSH is already up to date!%f"
-    cd "$original_dir"
     return 0
   fi
-  
+
   print -P "%F{39}Updates available!%f"
   print -P "%F{242}Local:  $local_commit%f"
   print -P "%F{242}Remote: $remote_commit%f"
   echo ""
-  
-  # Show what changed
+
   print -P "%F{39}Changes:%f"
   git log --oneline HEAD..origin/main | head -5
   echo ""
-  
-  read -q "?Update KZSH? [y/N] " || { echo ""; cd "$original_dir"; return 0; }
+
+  read -q "?Update KZSH? [y/N] " || { echo ""; return 0; }
   echo ""
-  
-  # Stash local changes if any
+
   local has_changes=0
   if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     print -P "%F{yellow}⚠ Stashing local changes...%f"
     git stash push -m "Auto-stash before update $(date)" --quiet 2>/dev/null
     has_changes=1
   fi
-  
-  # Pull updates
+
   print -P "%F{242}Pulling updates...%f"
   if git pull origin main 2>&1 | tee /tmp/kzsh-update.log; then
-    # Check for conflicts
     if grep -q "CONFLICT" /tmp/kzsh-update.log; then
       print -P "%F{red}✗ Merge conflicts detected!%f"
       print -P "%F{yellow}Conflicts:%f"
@@ -418,13 +388,9 @@ kupdate() {
       print -P "  1. Resolve manually: cd $repo_dir && git status"
       print -P "  2. Abort and keep local: git merge --abort"
       print -P "  3. Accept remote: git checkout --theirs . && git add . && git commit"
-      cd "$original_dir"
       return 1
     fi
-    
     print -P "%F{32}✓ KZSH updated successfully!%f"
-    
-    # Pop stash if we stashed changes
     if [[ $has_changes -eq 1 ]]; then
       echo ""
       print -P "%F{yellow}⚠ Restoring your local changes...%f"
@@ -435,25 +401,16 @@ kupdate() {
         print -P "%F{242}Your changes are saved in stash. Resolve conflicts manually.%f"
       fi
     fi
-    
     echo ""
     print -P "%F{39}Restart your shell to apply changes:%f"
     print -P "%F{242}  exec zsh%f"
     echo ""
-    
-    # Update last check time
     echo "$(date +%s)" > "${KZSH_DIR}/.last_update"
-    
-    # Clean up log
     rm -f /tmp/kzsh-update.log
   else
     print -P "%F{red}✗ Failed to update KZSH%f"
     print -P "%F{242}Try manually: cd $repo_dir && git pull%f"
     rm -f /tmp/kzsh-update.log
-    cd "$original_dir"
     return 1
   fi
-  
-  # Return to original directory
-  cd "$original_dir"
 }

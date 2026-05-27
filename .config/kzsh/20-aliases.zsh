@@ -24,4 +24,3 @@ alias sc='ksys'
 
 # Reload
 alias src='source ~/.zshrc'
-alias krl='source ~/.zshrc'

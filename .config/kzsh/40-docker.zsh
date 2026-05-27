@@ -7,6 +7,4 @@ if command -v docker >/dev/null 2>&1; then
   alias dcu='docker compose up -d'
   alias dcd='docker compose down'
   alias dce='docker compose exec'
-
-  compdef dc='docker'
 fi

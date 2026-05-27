@@ -3,38 +3,21 @@
 
 export KZSH_DIR="${KZSH_DIR:-$HOME/.config/kzsh}"
 
-# Auto-start session manager FIRST (before anything else)
-if [[ "$(tty)" == "/dev/tty1" ]] && \
-   [[ -z "$DISPLAY" ]] && \
-   [[ -z "$WAYLAND_DISPLAY" ]] && \
-   [[ -z "$XDG_SESSION_TYPE" ]] && \
-   [[ -z "$DESKTOP_SESSION" ]]; then
-    
-    # Additional check: don't run if compositor is already running
-    if ! pgrep -x niri >/dev/null 2>&1 && \
-       ! pgrep -x gnome-shell >/dev/null 2>&1 && \
-       ! pgrep -x plasmashell >/dev/null 2>&1 && \
-       ! pgrep -x Hyprland >/dev/null 2>&1 && \
-       ! pgrep -x sway >/dev/null 2>&1; then
-        
-        # Need kcfg function first
-        kcfg_temp() {
-          local cfg="$KZSH_DIR/config.yaml"
-          [[ ! -f $cfg ]] && return 1
-          awk -v k="$1" -F': *' '$1 == k {print $2}' "$cfg" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
-        }
-        
-        local session_enabled=$(kcfg_temp "auto_start_session" 2>/dev/null)
-        if [[ "$session_enabled" != "no" ]]; then
-            # Source the session starter
-            if [[ -f "${KZSH_DIR}/kstart-session.sh" ]]; then
-                source "${KZSH_DIR}/kstart-session.sh"
-            fi
-        fi
-        
-        unset -f kcfg_temp
+# Helper to find the repository directory
+kzsh_repo_dir() {
+  if [[ -L "${KZSH_DIR}" ]]; then
+    local link_target=$(readlink "${KZSH_DIR}")
+    if [[ "$link_target" == /* ]]; then
+      echo "$(cd "$(dirname "$link_target")/.." && pwd)"
+    else
+      echo "$(cd "$(dirname "${KZSH_DIR}")/$link_target/.." && pwd)"
     fi
-fi
+  elif [[ -d "${KZSH_DIR}/.git" ]]; then
+    echo "${KZSH_DIR}"
+  elif [[ -d "$HOME/.kzsh-repo/.git" ]]; then
+    echo "$HOME/.kzsh-repo"
+  fi
+}
 
 kcfg() {
   local cfg="$KZSH_DIR/config.yaml"
@@ -55,13 +38,13 @@ kcfg() {
       fi
       local key="$2"; shift 2
       local value="$*"
-      
+
       # Validate key format (no special chars except underscore and dash)
       if [[ ! "$key" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         echo "error: invalid key format '$key'"
         return 1
       fi
-      
+
       if grep -q "^$key:" "$cfg"; then
         # Use sed with backup for cross-platform compatibility
         if sed --version 2>&1 | grep -q GNU; then
@@ -114,7 +97,7 @@ kreload() {
 
 alias krl='kreload'
 
-for mod in 00-env 05-pkg 06-autoupdate 07-bootstrap 10-core 20-aliases 25-bun 30-git 40-docker 50-funcs 60-prompt 70-apps 80-sys; do
+for mod in 00-env 05-pkg 06-autoupdate 07-bootstrap 08-session 10-core 20-aliases 25-bun 30-git 40-docker 50-funcs 60-prompt 70-apps 80-sys; do
   [[ -f "$KZSH_DIR/$mod.zsh" ]] && source "$KZSH_DIR/$mod.zsh"
 done
 
@@ -134,6 +117,4 @@ if [[ -t 0 ]]; then
 fi
 
 [[ -n "$(functions kzsh_post_load)" ]] && kzsh_post_load
-
-# Ensure prompt substitution is active
 setopt PROMPT_SUBST

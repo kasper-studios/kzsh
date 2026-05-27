@@ -1,21 +1,25 @@
 #!/bin/bash
 # Post-install hook for desktop-gnome profile
 
+set -e
+
 echo "Configuring GNOME desktop environment..."
 
 # Enable GDM if not already enabled
 if ! systemctl is-enabled gdm &>/dev/null; then
-    echo "Enabling GDM..."
-    sudo systemctl enable gdm
+  echo "Enabling GDM..."
+  sudo systemctl enable gdm
 fi
 
 # Add user to video group if not already
-if ! groups | grep -q video; then
-    echo "Adding user to video group..."
-    sudo usermod -aG video "$USER"
-fi
+for group in video input; do
+  if ! groups | grep -qw "$group"; then
+    echo "Adding user to $group group..."
+    sudo usermod -aG "$group" "$USER" || warn "Failed to add user to $group group"
+  fi
+done
 
-echo "вњ“ GNOME desktop environment configured successfully!"
+echo "GNOME desktop environment configured successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Reboot your system: sudo reboot"
