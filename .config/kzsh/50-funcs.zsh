@@ -106,6 +106,142 @@ kinstall() {
   print -P "%F{green}%B🎉 Setup complete!%b%f Use 'krl' to refresh."
 }
 
+# --- PREFLIGHT (kpreflight) ---
+# Preflight is intentionally profile-based to avoid a huge "check the whole universe" command.
+# Use: kpreflight base|desktop|audio|gaming|stream|network|bluetooth|doctor
+# Only 'base' may install safe packages (pciutils/mesa/vulkan loader). Everything else is checks/hints.
+
+_kpreflight__is_archish() {
+  [[ "$KZSH_DISTRO" == "arch" || "$KZSH_DISTRO" == "manjaro" || "$KZSH_DISTRO" == "endeavouros" ]]
+}
+
+_kpreflight__sudo() {
+  if [[ "$EUID" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+_kpreflight_base() {
+  local do_install="$1"  # yes|no
+
+  print -P "\n%F{39}%B🧪 kpreflight: base%b%f"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if [[ "$do_install" == "yes" ]]; then
+    print -P "%F{39}Installing base GUI stack (safe):%f %F{242}pciutils mesa vulkan-icd-loader%f"
+    _kpreflight__sudo pacman -S --noconfirm --needed pciutils mesa vulkan-icd-loader >/dev/null 2>&1 || \
+      print -P "%F{yellow}⚠ Failed to install some base packages (continuing).%f"
+  fi
+
+  if ! command -v lspci >/dev/null 2>&1; then
+    print -P "%F{242}lspci not found (pciutils).%f"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    return 0
+  fi
+
+  local gpus
+  gpus=$(lspci -nn | grep -Ei 'VGA compatible controller|3D controller|Display controller' || true)
+  local gpu_count
+  gpu_count=$(print -r -- "$gpus" | grep -c . 2>/dev/null || echo 0)
+
+  print -P "%F{39}GPU devices detected:%f $gpu_count"
+  if [[ -n "$gpus" ]]; then
+    print -P "%F{242}$gpus%f"
+  else
+    print -P "%F{242}(no GPU lines detected via lspci)%f"
+  fi
+
+  if [[ "$gpu_count" -gt 1 ]]; then
+    print -P "%F{yellow}⚠ Hybrid/multi-GPU detected.%f"
+    print -P "%F{242}Wayland + hybrid NVIDIA/Optimus may require manual setup. No vendor drivers are installed automatically.%f"
+  fi
+
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+_kpreflight_desktop() {
+  print -P "\n%F{39}%B🧪 kpreflight: desktop%b%f"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Only checks/hints.
+  if command -v systemctl >/dev/null 2>&1; then
+    if systemctl list-unit-files 2>/dev/null | grep -q '^sddm\.service'; then
+      local enabled="no"
+      systemctl is-enabled sddm.service >/dev/null 2>&1 && enabled="yes"
+      print -P "%F{39}SDDM unit present:%f %F{242}(enabled: $enabled)%f"
+    fi
+  fi
+
+  # Session entry checks (non-fatal)
+  if [[ -d /usr/share/wayland-sessions ]]; then
+    local niri_entry="/usr/share/wayland-sessions/niri.desktop"
+    if [[ -f "$niri_entry" ]]; then
+      print -P "%F{green}✓%f wayland session entry: %F{242}$niri_entry%f"
+    else
+      print -P "%F{242}No niri.desktop in /usr/share/wayland-sessions yet (will be created by desktop-niri hook).%f"
+    fi
+  fi
+
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# Placeholders (minimal, to avoid future bloat)
+_kpreflight_audio() { print -P "\n%F{39}%B🧪 kpreflight: audio%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+_kpreflight_gaming() { print -P "\n%F{39}%B🧪 kpreflight: gaming%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+_kpreflight_stream() { print -P "\n%F{39}%B🧪 kpreflight: stream%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+_kpreflight_network() { print -P "\n%F{39}%B🧪 kpreflight: network%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+_kpreflight_bluetooth() { print -P "\n%F{39}%B🧪 kpreflight: bluetooth%b%f"; print -P "%F{242}(not implemented yet)%f"; }
+
+kpreflight() {
+  local profile="${1:-base}"
+  shift || true
+
+  if ! _kpreflight__is_archish; then
+    print -P "%F{242}kpreflight: skipping (unsupported distro: $KZSH_DISTRO)%f"
+    return 0
+  fi
+
+  case "$profile" in
+    base)
+      local do_install="no"
+      [[ "${1:-}" == "--install" ]] && do_install="yes"
+      _kpreflight_base "$do_install"
+      ;;
+    desktop)
+      _kpreflight_desktop
+      ;;
+    audio)
+      _kpreflight_audio
+      ;;
+    gaming)
+      _kpreflight_gaming
+      ;;
+    stream)
+      _kpreflight_stream
+      ;;
+    network)
+      _kpreflight_network
+      ;;
+    bluetooth)
+      _kpreflight_bluetooth
+      ;;
+    doctor)
+      # Runs only what exists; still intentionally limited.
+      _kpreflight_base "no"
+      _kpreflight_desktop
+      _kpreflight_audio
+      _kpreflight_network
+      _kpreflight_bluetooth
+      ;;
+    *)
+      echo "usage: kpreflight base [--install] | desktop | audio | gaming | stream | network | bluetooth | doctor"
+      return 1
+      ;;
+  esac
+}
+
 # --- DEPENDENCIES (kdeps) ---
 KZSH_DEPS=(
   "bat:📄 Syntax highlighting"

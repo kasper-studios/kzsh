@@ -16,21 +16,21 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 error() {
-    echo -e "${RED}✗ ERROR:${NC} $1"
+    echo -e "${RED}вњ— ERROR:${NC} $1"
     ((ERRORS++))
 }
 
 warn() {
-    echo -e "${YELLOW}⚠ WARNING:${NC} $1"
+    echo -e "${YELLOW}вљ  WARNING:${NC} $1"
     ((WARNINGS++))
 }
 
 ok() {
-    echo -e "${GREEN}✓${NC} $1"
+    echo -e "${GREEN}вњ“${NC} $1"
 }
 
 info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+    echo -e "${BLUE}в„№${NC} $1"
 }
 
 section() {
@@ -236,13 +236,13 @@ section "Summary"
 
 echo ""
 if [[ $ERRORS -eq 0 ]] && [[ $WARNINGS -eq 0 ]]; then
-    echo -e "${GREEN}✓ All checks passed!${NC}"
+    echo -e "${GREEN}вњ“ All checks passed!${NC}"
     echo "System is ready to boot."
 elif [[ $ERRORS -eq 0 ]]; then
-    echo -e "${YELLOW}⚠ $WARNINGS warning(s) found${NC}"
+    echo -e "${YELLOW}вљ  $WARNINGS warning(s) found${NC}"
     echo "System should boot, but review warnings above."
 else
-    echo -e "${RED}✗ $ERRORS error(s) and $WARNINGS warning(s) found${NC}"
+    echo -e "${RED}вњ— $ERRORS error(s) and $WARNINGS warning(s) found${NC}"
     echo "System may not boot correctly. Fix errors above."
     exit 1
 fi

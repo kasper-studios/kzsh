@@ -159,10 +159,22 @@ kpkg() {
       return 1
       ;;
   esac
-  
+
   # Run post-install hooks for profiles
   if [[ "$action" == "install" && ${#installed_profiles[@]} -gt 0 ]]; then
     for profile in "${installed_profiles[@]}"; do
+      # Run universal preflight ONLY for desktop-* profiles.
+      # Keep it profile-based: base installs safe packages, desktop is checks only.
+      # Vendor driver install must remain manual.
+      if [[ "$profile" == desktop-* ]]; then
+        if command -v kpreflight >/dev/null 2>&1; then
+          print -P "\n%F{39}🧪 Running preflight: %Bbase%b (install safe base) ...%f"
+          kpreflight base --install
+          print -P "\n%F{39}🧪 Running preflight: %Bdesktop%b (checks) ...%f"
+          kpreflight desktop
+        fi
+      fi
+
       local hook_file="${KZSH_DIR}/hooks/${profile}.sh"
       if [[ -f "$hook_file" && -r "$hook_file" ]]; then
         print -P "\n%F{39}🔧 Running post-install hook for %B$profile%b...%f"

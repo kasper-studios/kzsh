@@ -15,7 +15,7 @@ if ! groups | grep -q video; then
     sudo usermod -aG video "$USER"
 fi
 
-echo "✓ KDE Plasma desktop environment configured successfully!"
+echo "вњ“ KDE Plasma desktop environment configured successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Reboot your system: sudo reboot"

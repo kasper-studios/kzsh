@@ -15,7 +15,7 @@ if ! groups | grep -q video; then
     sudo usermod -aG video "$USER"
 fi
 
-echo "✓ GNOME desktop environment configured successfully!"
+echo "вњ“ GNOME desktop environment configured successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Reboot your system: sudo reboot"

@@ -69,7 +69,7 @@ echo "Reinstalling systemd-boot..."
 bootctl install --esp-path=/boot 2>&1 || echo "Warning: bootctl install had issues (may be normal in chroot)"
 
 echo ""
-echo "✓ systemd-boot configuration fixed!"
+echo "вњ“ systemd-boot configuration fixed!"
 echo ""
 echo "Next steps:"
 echo "  1. Exit chroot: exit"

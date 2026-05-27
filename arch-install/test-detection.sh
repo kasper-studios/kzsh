@@ -9,7 +9,7 @@ echo
 
 # Test 1: Detect current boot mode
 BOOT_MODE=$(detect_boot_mode)
-echo "✓ Detected boot mode: $BOOT_MODE"
+echo "вњ“ Detected boot mode: $BOOT_MODE"
 
 # Test 2: Check function
 check_boot_mode

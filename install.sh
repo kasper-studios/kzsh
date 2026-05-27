@@ -20,11 +20,11 @@ run_cmd() {
   fi
 }
 
-print_color "🚀 Starting KASPERENOK ZSH Remote Installation..."
+print_color "рџљЂ Starting KASPERENOK ZSH Remote Installation..."
 
 # 1. Install basics if missing
 if ! command -v git >/dev/null 2>&1 || ! command -v zsh >/dev/null 2>&1 || ! command -v which >/dev/null 2>&1; then
-  print_color "📦 Installing base dependencies (git, zsh, which, curl, unzip)..."
+  print_color "рџ“¦ Installing base dependencies (git, zsh, which, curl, unzip)..."
   if [[ -f /etc/arch-release ]]; then
     run_cmd pacman -S --noconfirm git zsh which curl unzip || {
       echo "ERROR: Failed to install dependencies"
@@ -55,7 +55,7 @@ fi
 REPO_DIR="$HOME/.kzsh-repo"
 
 if [[ -d "$REPO_DIR/.git" ]]; then
-  print_color "📂 Checking for updates..."
+  print_color "рџ“‚ Checking for updates..."
   cd "$REPO_DIR" || {
     echo "ERROR: Cannot access $REPO_DIR"
     exit 1
@@ -63,28 +63,28 @@ if [[ -d "$REPO_DIR/.git" ]]; then
   
   # Fetch updates
   if ! git fetch origin main --quiet 2>/dev/null; then
-    print_color "⚠️  Failed to fetch updates, continuing with local version..."
+    print_color "вљ пёЏ  Failed to fetch updates, continuing with local version..."
   else
     # Check if updates available
     local_commit=$(git rev-parse HEAD 2>/dev/null)
     remote_commit=$(git rev-parse origin/main 2>/dev/null)
     
     if [[ "$local_commit" != "$remote_commit" ]]; then
-      print_color "📥 Updates available, pulling..."
+      print_color "рџ“Ґ Updates available, pulling..."
       git stash push -m "Auto-stash before update" --quiet 2>/dev/null || true
       if ! git pull origin main 2>/dev/null; then
-        print_color "⚠️  Failed to pull updates, continuing with local version..."
+        print_color "вљ пёЏ  Failed to pull updates, continuing with local version..."
         git stash pop --quiet 2>/dev/null || true
       fi
     else
-      print_color "✅ Already up to date!"
+      print_color "вњ… Already up to date!"
     fi
   fi
 else
-  print_color "📂 Cloning repository..."
+  print_color "рџ“‚ Cloning repository..."
   # Remove old repo if exists but not a git repo
   if [[ -d "$REPO_DIR" ]] && [[ ! -d "$REPO_DIR/.git" ]]; then
-    print_color "⚠️  Backing up old installation..."
+    print_color "вљ пёЏ  Backing up old installation..."
     mv "$REPO_DIR" "$REPO_DIR.backup.$(date +%s)"
   fi
   
@@ -97,7 +97,7 @@ else
 fi
 
 # Create symlink from ~/.config/kzsh to repo's .config/kzsh
-print_color "🔗 Creating symlink..."
+print_color "рџ”— Creating symlink..."
 mkdir -p "$HOME/.config"
 
 # Verify source directory exists
@@ -109,13 +109,13 @@ fi
 
 # Remove old installation if it's not a symlink
 if [[ -e "$INSTALL_DIR" ]] && [[ ! -L "$INSTALL_DIR" ]]; then
-  print_color "⚠️  Backing up old ~/.config/kzsh..."
+  print_color "вљ пёЏ  Backing up old ~/.config/kzsh..."
   mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
 fi
 
 # Remove broken symlink if exists
 if [[ -L "$INSTALL_DIR" ]] && [[ ! -e "$INSTALL_DIR" ]]; then
-  print_color "🔧 Removing broken symlink..."
+  print_color "рџ”§ Removing broken symlink..."
   rm -f "$INSTALL_DIR"
 fi
 
@@ -141,7 +141,7 @@ if [[ ! -f "$HOME/.zshrc" ]]; then
   touch "$HOME/.zshrc"
 fi
 if ! grep -q "kzsh.zsh" "$HOME/.zshrc"; then
-  print_color "🔗 Adding entrypoint to .zshrc..."
+  print_color "рџ”— Adding entrypoint to .zshrc..."
   cat >> "$HOME/.zshrc" << EOF
 
 # KASPERENOK ZSH Entrypoint
@@ -170,7 +170,7 @@ fi
 
 # 5. Change Shell
 if [[ "$SHELL" != *"zsh"* ]]; then
-  print_color "🐚 Changing shell to ZSH..."
+  print_color "рџђљ Changing shell to ZSH..."
   zsh_path=$(command -v zsh)
   if [[ -z "$zsh_path" ]]; then
     echo "ERROR: ZSH not found in PATH"
@@ -179,15 +179,15 @@ if [[ "$SHELL" != *"zsh"* ]]; then
   
   # Check if zsh is in /etc/shells
   if ! grep -q "^$zsh_path$" /etc/shells 2>/dev/null; then
-    print_color "⚠️  Adding ZSH to /etc/shells..."
+    print_color "вљ пёЏ  Adding ZSH to /etc/shells..."
     echo "$zsh_path" | run_cmd tee -a /etc/shells >/dev/null
   fi
   
   if ! run_cmd chsh -s "$zsh_path" "$USER"; then
-    print_color "⚠️  Failed to change shell automatically."
-    print_color "💡 Run manually: chsh -s $zsh_path"
+    print_color "вљ пёЏ  Failed to change shell automatically."
+    print_color "рџ’Ў Run manually: chsh -s $zsh_path"
   fi
 fi
 
-print_color "✨ Done! Restart your terminal to enjoy KASPERENOK ZSH."
-print_color "💡 Or just run: zsh"
+print_color "вњЁ Done! Restart your terminal to enjoy KASPERENOK ZSH."
+print_color "рџ’Ў Or just run: zsh"

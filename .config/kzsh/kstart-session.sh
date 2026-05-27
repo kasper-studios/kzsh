@@ -20,7 +20,7 @@ NC='\033[0m'
 
 # Error handler
 handle_error() {
-    echo -e "${RED}✗ Session failed to start${NC}"
+    echo -e "${RED}вњ— Session failed to start${NC}"
     echo -e "${YELLOW}Check logs: journalctl --user -xe${NC}"
     echo ""
     read -p "Press Enter to return to shell..."
@@ -32,9 +32,9 @@ trap handle_error ERR
 clear
 
 echo -e "${CYAN}"
-echo "╔════════════════════════════════════════╗"
-echo "║     KASPERENOK SESSION MANAGER         ║"
-echo "╚════════════════════════════════════════╝"
+echo "в•”в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•—"
+echo "в•‘     KASPERENOK SESSION MANAGER         в•‘"
+echo "в•љв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ќ"
 echo -e "${NC}"
 
 # Detect installed desktop environments
@@ -75,7 +75,7 @@ if command -v sway >/dev/null 2>&1; then
 fi
 
 if [[ $session_count -eq 0 ]]; then
-    echo -e "${RED}✗ No desktop environments found${NC}"
+    echo -e "${RED}вњ— No desktop environments found${NC}"
     echo -e "${YELLOW}Install one with: kpkg install desktop-niri${NC}"
     echo ""
     read -p "Press Enter to continue to shell..."
@@ -133,7 +133,7 @@ case "$choice" in
             
             # Verify command exists before exec
             if ! command -v $cmd >/dev/null 2>&1; then
-                echo -e "${RED}✗ Command not found: $cmd${NC}"
+                echo -e "${RED}вњ— Command not found: $cmd${NC}"
                 handle_error
                 return 1
             fi
