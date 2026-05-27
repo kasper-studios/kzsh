@@ -311,16 +311,16 @@ _kpreflight_network() {
     print -P "%F{red}✗%f nmcli missing"
   fi
 
-  # Internet connectivity
-  # Try to curl to archlinux.org with a timeout, if curl is available.
-  # Otherwise, try to open a TCP connection to 8.8.8.8:53 (DNS) or 1.1.1.1:53.
-  if command -v curl >/dev/null 2>&1; then
-    if curl -Is --connect-timeout 2 https://archlinux.org >/dev/null 2>&1; then
-      print -P "%F{green}✓%f internet reachable"
-    else
-      print -P "%F{red}✗%f internet unreachable"
-    fi
-  else
+   # Internet connectivity
+   # Try to curl to archlinux.org with a timeout, if curl is available.
+   # Otherwise, try to open a TCP connection to 8.8.8.8:53 (DNS) or 1.1.1.1:53.
+   if command -v curl >/dev/null 2>&1; then
+     if timeout 5 bash -c "</dev/tcp/archlinux.org/443" 2>/dev/null; then
+       print -P "%F{green}✓%f internet reachable"
+     else
+       print -P "%F{red}✗%f internet unreachable"
+     fi
+   else
     # Fallback: try to open TCP connection to 8.8.8.8:53
     if timeout 3 bash -c "echo >/dev/tcp/8.8.8.8/53" 2>/dev/null; then
       print -P "%F{green}✓%f internet reachable (TCP to 8.8.8.8:53)"
@@ -538,16 +538,16 @@ kupdate() {
   print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
    print -P "%F{242}Fetching updates from GitHub...%f"
-   local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-   [[ -z "$default_branch" ]] && default_branch="main"
-   if ! git fetch origin $default_branch --quiet 2>/dev/null; then
+   local current_branch=$(git branch --show-current 2>/dev/null)
+   [[ -z "$current_branch" ]] && { print -P "%F{red}✗ Could not determine current branch%f"; return 1; }
+   if ! git fetch origin $current_branch --quiet 2>/dev/null; then
     print -P "%F{red}✗ Failed to fetch updates%f"
     print -P "%F{242}Check your internet connection%f"
     return 1
   fi
 
-  local local_commit=$(git rev-parse HEAD 2>/dev/null)
-   local remote_commit=$(git rev-parse origin/$default_branch 2>/dev/null)
+   local local_commit=$(git rev-parse HEAD 2>/dev/null)
+   local remote_commit=$(git rev-parse origin/$current_branch 2>/dev/null)
 
   if [[ "$local_commit" == "$remote_commit" ]]; then
     print -P "%F{32}✓ KZSH is already up to date!%f"
@@ -560,7 +560,7 @@ kupdate() {
   echo ""
 
    print -P "%F{39}Changes:%f"
-   git log --oneline HEAD..origin/$default_branch | head -5
+   git log --oneline HEAD..origin/$current_branch | head -5
   echo ""
 
   read -q "?Update KZSH? [y/N] " || { echo ""; return 0; }
@@ -574,7 +574,7 @@ kupdate() {
   fi
 
    print -P "%F{242}Pulling updates...%f"
-   if git pull origin $default_branch 2>&1 | tee /tmp/kzsh-update.log; then
+   if git pull origin $current_branch 2>&1 | tee /tmp/kzsh-update.log; then
     if grep -q "CONFLICT" /tmp/kzsh-update.log; then
       print -P "%F{red}✗ Merge conflicts detected!%f"
       print -P "%F{yellow}Conflicts:%f"
