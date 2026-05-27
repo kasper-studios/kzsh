@@ -528,12 +528,13 @@ HELP
 
 
 kupdate() {
-  local repo_dir=$(kzsh_repo_dir)
-  [[ -z "$repo_dir" ]] && {
-    print -P "%F{red}✗ Not a git repository%f"
-    print -P "%F{242}KZSH was not installed via git clone%f"
-    return 1
-  }
+   local repo_dir=$(kzsh_repo_dir)
+   [[ -z "$repo_dir" ]] && {
+     print -P "%F{red}✗ Not a git repository%f"
+     print -P "%F{242}KZSH was not installed via git clone%f"
+     return 1
+   }
+   cd "$repo_dir" || { print -P "%F{red}✗ Cannot cd into repo dir%f"; return 1; }
 
   print -P "\n%F{39}%B🔄 KZSH UPDATER%b%f"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
