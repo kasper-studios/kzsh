@@ -67,7 +67,7 @@ kcfg() {
       fi
       ;;
     edit)
-      ${EDITOR:-nvim} "$cfg" < /dev/tty
+      ${EDITOR:nano} "$cfg" < /dev/tty
       ;;
     validate)
       # Basic YAML validation

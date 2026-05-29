@@ -370,7 +370,8 @@ _kpreflight_bluetooth() {
   if command -v bluetoothctl >/dev/null 2>&1; then
     print -P "%F{green}✓%f bluetoothctl available"
   else
-    print -P "%F{red}✗%f bluetoothctl missing"
+    print -P "%F{red}✗%f Bluetooth CLI unavailable
+package: bluez-utils"
   fi
 
   # Adapter present
