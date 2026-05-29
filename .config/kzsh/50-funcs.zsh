@@ -3,12 +3,16 @@
 
 # --- HELPERS ---
 clip() {
-  if ! command -v clip.exe >/dev/null 2>&1; then
-    print -P "%F{red}error:%f clip.exe not found (WSL only)"
-    return 1
-  fi
-  cat "${1:-/dev/stdin}" | clip.exe
-  print -P "📋 %F{green}Copied%f to Windows clipboard!"
+    if command -v wl-copy >/dev/null 2>&1; then
+        wl-copy < "$1"
+    elif command -v xclip >/dev/null 2>&1; then
+        xclip -selection clipboard < "$1"
+    elif command -v clip.exe >/dev/null 2>&1; then
+        clip.exe < "$1"
+    else
+        echo "No clipboard backend found"
+        return 1
+    fi
 }
 
 search() {
