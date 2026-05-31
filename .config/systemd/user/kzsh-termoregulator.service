@@ -1,0 +1,12 @@
+[Unit]
+Description=KZSH Termoregulator Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/kzsh/demons/termoregulator.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

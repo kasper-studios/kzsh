@@ -1,0 +1,14 @@
+{
+  "name": "kzsh-daemons",
+  "version": "1.0.0",
+  "description": "Daemon system for kzsh",
+  "main": "src/daemon-manager.js",
+  "scripts": {
+    "start": "node src/daemon-manager.js",
+    "check": "node src/daemon-check.js",
+    "web": "node src/web/server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.2"
+  }
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+:root { --purple: #b388eb; --black: #0a0a0a; --gray: #1a1a1a; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--black); color: var(--purple); font-family: monospace; padding: 15px; min-width: 300px; }
+h2 { color: var(--purple); margin-bottom: 10px; }
+.status { margin: 5px 0; }
+.btn { background: var(--purple); color: var(--black); border: none; padding: 8px 15px; margin: 3px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h2>🌡️ Termoregulator</h2>
+<div id="temp" class="status">Temp: —°C</div>
+<div id="load" class="status">Load: —%</div>
+<div id="profile" class="status">Profile: —</div>
+<div style="margin-top:10px">
+<button class="btn" onclick="setProfile(true)">🔥 Performance</button>
+<button class="btn" onclick="setProfile(false)">❄️ Power Saver</button>
+</div>
+<script>
+async function update() {
+  const res = await fetch('http://localhost:9110/api/status');
+  const data = await res.json();
+  document.getElementById('temp').textContent = `Temp: ${data.temperature}°C`;
+  document.getElementById('load').textContent = `Load: ${data.load}%`;
+  document.getElementById('profile').textContent = `Profile: ${data.profile}`;
+}
+async function setProfile(enabled) {
+  await fetch('http://localhost:9110/api/turbo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  });
+  update();
+}
+setInterval(update, 2000);
+update();
+</script>
+</body>
+</html>

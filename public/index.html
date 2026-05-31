@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KZSH Демони</title>
+    <style>
+        :root {
+            --purple: #b388eb;
+            --purple-dark: #7c4dff;
+            --purple-light: #e0b6ff;
+            --black: #0a0a0a;
+            --gray: #1a1a1a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: var(--black);
+            color: var(--purple-light);
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: var(--purple); text-align: center; margin: 20px 0; font-size: 2em; }
+        .status-card {
+            background: var(--gray);
+            border: 1px solid var(--purple);
+            border-radius: 10px;
+            padding: 25px;
+            margin: 15px 0;
+        }
+        .temp-display { font-size: 3em; color: var(--purple); text-align: center; }
+        .temp-unit { font-size: 0.5em; color: var(--purple-light); }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        button {
+            background: var(--purple);
+            color: var(--black);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--purple-dark); }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        .badge.on { background: var(--purple); color: var(--black); }
+        .badge.off { background: #333; color: #777; }
+        .footer { text-align: center; margin-top: 30px; color: #555; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌡️ ТРМРГЛТР</h1>
+        
+        <div class="status-card">
+            <div class="temp-display" id="temp">—<span class="temp-unit">°C</span></div>
+            <p style="text-align:center; margin-top:10px;">Нагрузка: <span id="load">—</span>% | 
+               Профиль: <span id="profile">—</span></p>
+        </div>
+
+        <div class="status-card">
+            <h3>Управление</h3>
+            <div class="controls">
+                <button onclick="setProfile('performance')">Performance</button>
+                <button onclick="setProfile('power-saver')">Power Saver</button>
+                <button onclick="setProfile('balanced')">Balanced</button>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Статистика</h3>
+            <p>Спасено от перегрева: <span id="saves">0</span> раз</p>
+            <p>Средняя температура: <span id="avg-temp">—</span>°C</p>
+        </div>
+
+        <div class="footer">KZSH Демони v1.0 | серенево-чёрный</div>
+    </div>
+
+    <script>
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                document.getElementById('temp').innerHTML = `${Math.round(data.temperature)}<span class="temp-unit">°C</span>`;
+                document.getElementById('load').textContent = data.load;
+                document.getElementById('profile').textContent = data.turboEnabled ? 'performance' : 'power-saver';
+            } catch (e) {
+                document.getElementById('temp').innerHTML = `—<span class="temp-unit">°C</span>`;
+            }
+        }
+
+        async function setProfile(profile) {
+            await fetch('/api/turbo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: profile === 'performance' })
+            });
+            updateStatus();
+        }
+
+        setInterval(updateStatus, 2000);
+        updateStatus();
+    </script>
+</body>
+</html>

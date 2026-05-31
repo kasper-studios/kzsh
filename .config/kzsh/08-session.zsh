@@ -1,6 +1,20 @@
 # ~/.config/kzsh/08-session.zsh
 # Auto-start session manager on TTY1
 
+# Run autostart apps before session
+if [[ -f "$KZSH_DIR/.autostart" ]]; then
+  echo ""
+  print -P "%F{39}%B🏁 AUTOSTART%b%f"
+  echo ""
+  while IFS='|' read name cmd enabled; do
+    if [[ "$enabled" == "true" ]]; then
+      print -P "  🚀 %F{cyan}$name%f"
+      eval "$cmd" &
+    fi
+  done < "$KZSH_DIR/.autostart"
+  echo ""
+fi
+
 # Only run on TTY1 and if not already in a graphical session
 if [[ "$(tty)" == "/dev/tty1" ]] && \
    [[ -z "$DISPLAY" ]] && \

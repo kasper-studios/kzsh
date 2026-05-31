@@ -1,2 +1,6 @@
 devnotes.md
 .config/kzsh/90-local.zsh
+.kilo
+node_modules
+package-lock.json
+dist
