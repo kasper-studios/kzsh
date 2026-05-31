@@ -1,5 +1,6 @@
 # ~/.config/kzsh/70-apps.zsh
 # Custom App Registry (kapp) and Autostart (kstart)
+
 kapp() {
   local cmd="$1"
   case "$cmd" in
@@ -8,14 +9,11 @@ kapp() {
         echo "usage: kapp add <name> <command>"
         return 1
       fi 
-
       if [[ ! "$2" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         print -P "%F{red}error:%f Name can only contain letters, numbers, - and _"
         return 1
       fi
-
       local clean_cmd="${3//\\//}"
-      
       kcfg set "app_$2" "$clean_cmd"
       print -P "🚀 App %F{cyan}$2%f registered! Reload shell to apply."
       ;;
@@ -89,26 +87,87 @@ if [[ -t 0 ]]; then
   done
 fi
 
-# --- DAEMONS (kdaemon) ---
+# --- DAEMONS (systemd) ---
+kdaemon() {
+  local action="$1"
+  local daemon="$2"
+  local svc_name="kzsh-$daemon"
+  
+  case "$action" in
+    check)
+      node "$KZSH_DIR/src/daemon-check.js"
+      ;;
+    install)
+      if [[ -z "$daemon" ]]; then
+        echo "usage: kdaemon install <daemon>"
+        echo "Available: termoregulator, autostart"
+        return 1
+      fi
+      local repo_dir=$(kzsh_repo_dir)
+      local src="${repo_dir}/.config/systemd/user/${svc_name}.service"
+      local dst="$HOME/.config/systemd/user/${svc_name}.service"
+      if [[ -f "$src" ]]; then
+        mkdir -p "$HOME/.config/systemd/user"
+        cp "$src" "$dst"
+        systemctl --user daemon-reload
+        print -P "✅ Service %F{cyan}$svc_name.service%f installed"
+      else
+        print -P "%F{red}✗ Service file not found%f"
+      fi
+      ;;
+    enable)
+      systemctl --user enable "$svc_name" 2>/dev/null && \
+        print -P "✅ Daemon %F{cyan}$daemon%f enabled" || \
+        print -P "%F{yellow}⚠ Install first: kdaemon install $daemon%f"
+      ;;
+    disable)
+      systemctl --user disable "$svc_name" 2>/dev/null && \
+        print -P "❌ Daemon %F{cyan}$daemon%f disabled"
+      ;;
+    start)
+      systemctl --user start "$svc_name" 2>/dev/null && \
+        print -P "🚀 Starting %F{cyan}$daemon%f..." || \
+        node "$KZSH_DIR/src/demons/$daemon.js" &
+      ;;
+    stop)
+      systemctl --user stop "$svc_name" 2>/dev/null && \
+        print -P "⏹️ Stopped %F{cyan}$daemon%f"
+      ;;
+    status)
+      systemctl --user status "$svc_name" 2>/dev/null || \
+        print -P "%F{red}✗ Not installed.%f Run: kdaemon install $daemon"
+      ;;
+    *)
+      echo "KZSH DAEMON MANAGER (systemd)"
+      echo "usage: kdaemon check|install|enable|disable|start|stop|status <daemon>"
+      echo ""
+      echo "Демоны:"
+      echo "  termoregulator - температура + power profiles (http://localhost:9110)"
+      echo "  autostart - авто запуск приложений"
+      ;;
+  esac
+}
+
+# Autostart apps manager
 kautostart() {
   local action="$1"
   local app="$2"
   
   case "$action" in
     add)
-      if [[ -z "$app" ]]; then
+      if [[ -z "$2" ]]; then
         echo "usage: kautostart add <name> <command>"
         return 1
       fi
       local name="$2"; shift; shift
       local cmd="$*"
       echo "$name|$cmd|true" >> "$KZSH_DIR/.autostart"
-      print -P "✅ Added %F{cyan}$name%f to autostart"
+      print -P "✅ Added %F{cyan}$name%f to autostart (systemd)"
       ;;
     list)
       echo "🏁 Autostart Apps:"
       [[ -f "$KZSH_DIR/.autostart" ]] && cat "$KZSH_DIR/.autostart" | while IFS='|' read n cmd en; do
-        print -P "  %F{cyan}$n%f -> $cmd (%F{$([[ "$en" == "true" ]] && echo green || echo red)}$en%f)"
+        print -P "  %F{cyan}$n%f -> $cmd %F{$([[ "$en" == "true" ]] && echo green || echo red)}($en)%f"
       done
       ;;
     remove)
@@ -116,57 +175,12 @@ kautostart() {
       sed -i "/^$app|/d" "$KZSH_DIR/.autostart" 2>/dev/null
       print -P "🗑️ Removed %F{cyan}$app%f from autostart"
       ;;
-    run)
-      echo "🚀 Запускаю автозапуск..."
-      while IFS='|' read name cmd enabled; do
-        if [[ "$enabled" == "true" ]]; then
-          print -P "  🚀 $name"
-          eval "$cmd" &
-        fi
-      done < "$KZSH_DIR/.autostart"
-      ;;
     *)
-      echo "KZSH AUTOSTART MANAGER"
-      echo "usage: kautostart add|list|remove|run"
-      ;;
-  esac
-}
-
-kdaemon() {
-  local action="$1"
-  local daemon="$2"
-  
-  case "$action" in
-    check)
-      node "$KZSH_DIR/../src/daemon-check.js"
-      ;;
-    enable)
-      kcfg set "d_$daemon" "true"
-      print -P "✅ Daemon %F{cyan}$daemon%f enabled"
-      ;;
-    disable)
-      kcfg set "d_$daemon" "false"
-      print -P "❌ Daemon %F{cyan}$daemon%f disabled"
-      ;;
-    start)
-      node "$KZSH_DIR/../src/demons/$daemon.js" &
-      print -P "🚀 Starting %F{cyan}$daemon%f..."
-      ;;
-    status)
-      echo "📊 Daemon Status:"
-      kcfg list "d_" | while read -r line; do
-        local name="${line%%:*}"
-        local val="${line#*: }"
-        print -P "  %F{cyan}${name#d_}%f -> ${val}"
-      done
-      ;;
-    *)
-      echo "KZSH DAEMON MANAGER"
-      echo "usage: kdaemon check|enable|disable|start|status"
+      echo "KZSH AUTOSTART"
+      echo "usage: kautostart add|list|remove <name>"
       echo ""
-      echo "Демоны:"
-      echo "  autostart  - авто запуск приложений"
-      echo "  termoregulator - температура + power profiles"
+      echo "Управляется systemd: kzsh-autostart.service"
+      echo "Установить: kdaemon install autostart"
       ;;
   esac
 }
