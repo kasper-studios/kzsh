@@ -1,0 +1,11 @@
+[Unit]
+Description=KZSH Autostart Applications
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'while IFS="|" read name cmd enabled; do [[ "$enabled" == "true" ]] && eval "$cmd" & done < ${HOME}/.config/kzsh/.autostart'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target
