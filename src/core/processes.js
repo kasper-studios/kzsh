@@ -6,33 +6,35 @@ class ProcessManager {
         this.detectedProcesses = [];
         this.lastCheck = 0;
     }
-
-    checkBoostProcesses() {
+    
+    // Проверка запущенных процессов
+    async checkBoostProcesses() {
         return new Promise((resolve) => {
-            exec('ps -eo comm=,args= 2>/dev/null', { encoding: 'utf8', timeout: 3000 }, (error, stdout = '') => {
-                if (error || !stdout.trim()) {
+            exec('tasklist /FO CSV /NH', (err, stdout) => {
+                if (err || !stdout) {
+                    console.log('⚠️ Ошибка получения списка процессов');
                     resolve([]);
                     return;
                 }
-
-                const lines = stdout.toLowerCase().split('\n').map((line) => line.trim()).filter(Boolean);
+                
                 const running = [];
-
+                const lowerOutput = stdout.toLowerCase();
+                
+                // Парсим CSV вывод - ищем процессы в кавычках
                 for (const proc of BOOST_PROCESSES) {
-                    const patterns = Array.isArray(proc.patterns) ? proc.patterns : [proc];
-                    const matched = lines.some((line) => patterns.some((pattern) => {
-                        const normalizedPattern = String(pattern).toLowerCase();
-                        return line === normalizedPattern || line.startsWith(`${normalizedPattern} `) || line.includes(normalizedPattern);
-                    }));
-
-                    if (matched) running.push(proc.name || String(proc));
+                    const procName = proc.toLowerCase();
+                    // Ищем процесс в формате "процесс.exe"
+                    if (lowerOutput.includes(`"${procName}"`)) {
+                        running.push(proc);
+                    }
                 }
-
-                resolve([...new Set(running)]);
+                
+                resolve(running);
             });
         });
     }
-
+    
+    // Обновление списка процессов (с учётом интервала)
     async updateProcesses() {
         const now = Date.now();
         if (now - this.lastCheck > PROCESS_CHECK_INTERVAL) {
@@ -41,7 +43,7 @@ class ProcessManager {
         }
         return this.detectedProcesses;
     }
-
+    
     getDetectedProcesses() {
         return this.detectedProcesses;
     }
@@ -50,28 +52,48 @@ class ProcessManager {
         return this.detectedProcesses.length > 0;
     }
 
-    killByPatterns(processes) {
-        for (const proc of processes) {
-            const patterns = Array.isArray(proc.patterns) ? proc.patterns : [proc];
-            for (const pattern of patterns) {
-                const safePattern = String(pattern).replace(/'/g, `'\\''`);
-                exec(`pkill -f '${safePattern}'`, (error) => {
-                    if (!error) console.log(`  ✓ Завершён процесс по шаблону: ${pattern}`);
+    // Завершение тяжёлых процессов (для аварийной ситуации)
+    killHeavyProcesses() {
+        console.log('⚰️  ЗАВЕРШАЮ ТЯЖЁЛЫЕ ПРОЦЕССЫ для охлаждения...');
+        
+        // Приоритетные для завершения (наиболее ресурсоёмкие)
+        const priorityTargets = [
+            'chrome.exe',
+            'firefox.exe',
+            'msedge.exe',
+            'RobloxPlayerBeta.exe',
+            'Unity.exe',
+            'UnrealEditor.exe'
+        ];
+
+        for (const proc of priorityTargets) {
+            try {
+                exec(`taskkill /F /IM ${proc}`, (err) => {
+                    if (!err) {
+                        console.log(`  ✓ Завершён ${proc}`);
+                    }
                 });
+            } catch (e) {
+                // Игнорируем ошибки
             }
         }
     }
 
-    killHeavyProcesses() {
-        console.log('⚰️  Завершаю тяжёлые процессы для охлаждения...');
-        const names = ['Google Chrome', 'Chromium', 'Firefox', 'Roblox / Wine', 'Unity Editor', 'Unreal Engine', 'OBS Studio'];
-        const targets = BOOST_PROCESSES.filter((proc) => names.includes(proc.name));
-        this.killByPatterns(targets);
-    }
-
+    // Принудительное завершение ВСЕХ процессов из списка
     killAllProcesses() {
-        console.log('🆘 Завершаю все процессы из списка терморегулятора!');
-        this.killByPatterns(BOOST_PROCESSES);
+        console.log('🆘 ЗАВЕРШАЮ ВСЕ ПРОЦЕССЫ из списка для спасения системы!');
+        
+        for (const proc of BOOST_PROCESSES) {
+            try {
+                exec(`taskkill /F /IM ${proc}`, (err) => {
+                    if (!err) {
+                        console.log(`  ✓ Завершён ${proc}`);
+                    }
+                });
+            } catch (e) {
+                // Игнорируем ошибки
+            }
+        }
     }
 }
 

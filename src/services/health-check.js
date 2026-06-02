@@ -1,139 +1,199 @@
 const { exec } = require('child_process');
-const fs = require('fs');
-const temperatureReader = require('../core/temperature');
-const processManager = require('../core/processes');
-const powerManager = require('../core/power');
-const batteryManager = require('../core/battery');
+const path = require('path');
 
 class HealthCheck {
     constructor() {
         this.lastCheck = 0;
-        this.checkInterval = 30000;
-        this.lastResult = null;
+        this.checkInterval = 30000; // Проверка каждые 30 секунд
+        this.libreHWPath = path.join(__dirname, '..', '..', 'LibreHardwareMonitor', 'LibreHardwareMonitor.exe');
+        this.libreHWRestartAttempts = 0;
+        this.maxRestartAttempts = 3;
     }
-
-    execCommand(command, timeout = 3000) {
+    
+    // Проверка запущен ли LibreHardwareMonitor
+    async checkLibreHWRunning() {
         return new Promise((resolve) => {
-            exec(command, { encoding: 'utf8', timeout }, (error, stdout = '', stderr = '') => {
-                resolve({ ok: !error, stdout, stderr, error });
+            exec('tasklist /FI "IMAGENAME eq LibreHardwareMonitor.exe" /FO CSV /NH', (err, stdout) => {
+                if (err) {
+                    resolve(false);
+                    return;
+                }
+                
+                const isRunning = stdout.toLowerCase().includes('librehardwaremonitor.exe');
+                resolve(isRunning);
             });
         });
     }
-
-    async commandExists(command) {
-        const result = await this.execCommand(`command -v ${command}`);
-        return result.ok && result.stdout.trim().length > 0;
+    
+    // Проверка доступен ли Remote Web Server
+    async checkLibreHWAPI() {
+        return new Promise((resolve) => {
+            const http = require('http');
+            const req = http.get('http://localhost:8085/data.json', (res) => {
+                resolve(res.statusCode === 200);
+            });
+            
+            req.on('error', () => {
+                resolve(false);
+            });
+            
+            req.setTimeout(2000, () => {
+                req.destroy();
+                resolve(false);
+            });
+        });
     }
-
-    async checkNode() {
-        const result = await this.execCommand('node -v');
-        return { ok: result.ok, version: result.stdout.trim() || null };
+    
+    // Перезапуск LibreHardwareMonitor
+    async restartLibreHW() {
+        console.log('🔄 Попытка перезапуска LibreHardwareMonitor...');
+        
+        return new Promise((resolve) => {
+            // Сначала убиваем процесс если он завис
+            exec('taskkill /F /IM LibreHardwareMonitor.exe', () => {
+                // Ждём 2 секунды
+                setTimeout(() => {
+                    // Запускаем заново
+                    const cmd = `start "" "${this.libreHWPath}"`;
+                    exec(cmd, (err) => {
+                        if (err) {
+                            console.error('❌ Не удалось запустить LibreHardwareMonitor:', err.message);
+                            resolve(false);
+                        } else {
+                            console.log('✅ LibreHardwareMonitor перезапущен');
+                            this.libreHWRestartAttempts++;
+                            resolve(true);
+                        }
+                    });
+                }, 2000);
+            });
+        });
     }
-
-    async checkSensors() {
-        const exists = await this.commandExists('sensors');
-        if (!exists) return { ok: false, installed: false, optional: true };
-        const result = await this.execCommand('sensors 2>/dev/null | head -5');
-        return { ok: result.ok && result.stdout.trim().length > 0, installed: true, optional: true };
-    }
-
-    async checkTemperatureReader() {
-        try {
-            const temp = await temperatureReader.getCpuTemperature();
-            return { ok: Number.isFinite(temp) && temp > 0, temperature: temp };
-        } catch (error) {
-            return { ok: false, error: error.message };
-        }
-    }
-
+    
+    // Проверка работы чтения процессов
     async checkProcessDetection() {
-        try {
-            const processes = await processManager.checkBoostProcesses();
-            return { ok: Array.isArray(processes), detected: processes };
-        } catch (error) {
-            return { ok: false, error: error.message };
-        }
+        return new Promise((resolve) => {
+            exec('tasklist /FO CSV /NH', (err, stdout) => {
+                if (err || !stdout) {
+                    resolve(false);
+                    return;
+                }
+                
+                // Проверяем что вывод валидный
+                const isValid = stdout.includes('"') && stdout.length > 100;
+                resolve(isValid);
+            });
+        });
     }
+    
+    // Проверка работы powercfg
+    async checkPowerCfg() {
+        return new Promise((resolve) => {
+            // Пробуем несколько команд для проверки
+            exec('powercfg /query', (err, stdout) => {
+                if (err) {
+                    // Если ошибка - пробуем альтернативную команду
+                    exec('powercfg /L', (err2, stdout2) => {
+                        if (err2 || !stdout2) {
+                            console.log('⚠️ PowerCfg: обе команды не работают');
+                            resolve(false);
+                            return;
+                        }
+                        // Проверяем что есть вывод
+                        const isValid = stdout2.length > 50;
+                        if (!isValid) {
+                            console.log('⚠️ PowerCfg: пустой вывод');
+                        }
+                        resolve(isValid);
+                    });
+                    return;
+                }
 
-    async checkBattery() {
-        try {
-            const status = await batteryManager.updateStatus();
-            return { ok: Boolean(status), status };
-        } catch (error) {
-            return { ok: false, error: error.message };
-        }
+                // Проверяем что вывод валидный (есть GUID или название схемы)
+                const isValid = stdout.length > 50 && 
+                    (stdout.includes('GUID') || 
+                     stdout.includes('Scheme') ||
+                     stdout.includes('Current'));
+                
+                if (!isValid) {
+                    console.log('⚠️ PowerCfg: странный вывод');
+                }
+                
+                resolve(isValid);
+            });
+        });
     }
-
-    async checkPowerBackend() {
-        try {
-            const backends = await powerManager.detectBackends(true);
-            const governorFiles = powerManager.getGovernorFiles();
-            const boostFiles = powerManager.getBoostControlFiles();
-            const sysfsCpu = fs.existsSync('/sys/devices/system/cpu');
-
-            const realBackends = backends.filter((backend) => backend !== 'noop');
-            return {
-                ok: realBackends.length > 0,
-                backends,
-                governorFiles: governorFiles.length,
-                boostFiles: boostFiles.length,
-                sysfsCpu
-            };
-        } catch (error) {
-            return { ok: false, error: error.message };
-        }
-    }
-
+    
+    // Полная проверка здоровья системы
     async performHealthCheck() {
         const now = Date.now();
-        if (this.lastResult && now - this.lastCheck < this.checkInterval) {
-            return { ...this.lastResult, cached: true };
+        if (now - this.lastCheck < this.checkInterval) {
+            return { healthy: true, cached: true };
         }
-
+        
         this.lastCheck = now;
-
+        
         const results = {
-            node: await this.checkNode(),
-            temperature: await this.checkTemperatureReader(),
+            libreHWRunning: await this.checkLibreHWRunning(),
+            libreHWAPI: await this.checkLibreHWAPI(),
             processDetection: await this.checkProcessDetection(),
-            powerBackend: await this.checkPowerBackend(),
-            battery: await this.checkBattery(),
-            sensors: await this.checkSensors(),
+            powerCfg: await this.checkPowerCfg(),
             timestamp: new Date().toISOString()
         };
-
+        
+        // Если LibreHW не запущен или API не отвечает - пробуем перезапустить
+        if (!results.libreHWRunning || !results.libreHWAPI) {
+            if (this.libreHWRestartAttempts < this.maxRestartAttempts) {
+                console.log('⚠️ LibreHardwareMonitor не работает, пробую перезапустить...');
+                const restarted = await this.restartLibreHW();
+                
+                if (restarted) {
+                    // Ждём 5 секунд и проверяем снова
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    results.libreHWRunning = await this.checkLibreHWRunning();
+                    results.libreHWAPI = await this.checkLibreHWAPI();
+                }
+            } else {
+                console.log('⚠️ Превышен лимит попыток перезапуска LibreHardwareMonitor');
+            }
+        } else {
+            // Если всё работает - сбрасываем счётчик
+            this.libreHWRestartAttempts = 0;
+        }
+        
+        // Проверяем критичные проблемы
         const critical = [];
-        if (!results.node.ok) critical.push('Node.js не отвечает');
-        if (!results.temperature.ok) critical.push('Не удалось получить температуру CPU');
-        if (!results.processDetection.ok) critical.push('Детект процессов не работает');
-        if (!results.powerBackend.ok) critical.push('Нет доступного backend для управления питанием (powerprofilesctl/cpupower/sysfs)');
-
-        const warnings = [];
-        if (!results.sensors.ok) warnings.push('lm_sensors не установлен или не отвечает (не критично, если sysfs работает)');
-
-        const healthy = critical.length === 0;
-
+        if (!results.powerCfg) {
+            critical.push('PowerCfg не работает - нет прав администратора?');
+        }
+        if (!results.processDetection) {
+            critical.push('Детект процессов не работает');
+        }
+        
+        const healthy = results.libreHWAPI && results.processDetection && results.powerCfg;
+        
         if (!healthy) {
             console.log('⚠️ Проблемы со здоровьем системы:');
-            for (const item of critical) console.log(`  ❌ ${item}`);
-            for (const item of warnings) console.log(`  ⚠️ ${item}`);
+            if (!results.libreHWRunning) console.log('  ❌ LibreHardwareMonitor не запущен');
+            if (!results.libreHWAPI) console.log('  ❌ LibreHardwareMonitor API не отвечает');
+            if (!results.processDetection) console.log('  ❌ Детект процессов не работает');
+            if (!results.powerCfg) console.log('  ❌ PowerCfg не работает');
         }
-
-        this.lastResult = {
+        
+        return {
             healthy,
             results,
             critical,
-            warnings,
             timestamp: results.timestamp
         };
-
-        return this.lastResult;
     }
-
+    
+    // Получение статуса здоровья
     getHealthStatus() {
         return {
             lastCheck: this.lastCheck,
-            lastResult: this.lastResult
+            restartAttempts: this.libreHWRestartAttempts,
+            maxRestartAttempts: this.maxRestartAttempts
         };
     }
 }

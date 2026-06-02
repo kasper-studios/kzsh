@@ -6,7 +6,7 @@ class StatsManager {
     constructor() {
         this.statsFile = path.resolve(STATS_FILE);
         this.sessionStart = Date.now();
-
+        
         this.stats = {
             owner: '@kasperenok',
             totalSessions: 0,
@@ -20,21 +20,25 @@ class StatsManager {
             firstStart: null,
             lastStart: null
         };
-
+        
         this.loadStats();
         this.startSession();
     }
-
+    
+    // Загрузка статистики из файла
     loadStats() {
         if (fs.existsSync(this.statsFile)) {
             try {
                 const data = fs.readFileSync(this.statsFile, 'utf8');
                 this.stats = { ...this.stats, ...JSON.parse(data) };
                 console.log('📊 Статистика загружена');
-            } catch (e) {}
+            } catch (e) {
+                console.log('⚠️ Ошибка загрузки статистики, создаю новую');
+            }
         }
     }
-
+    
+    // Начало новой сессии
     startSession() {
         this.stats.totalSessions++;
         this.stats.lastStart = new Date().toISOString();
@@ -42,63 +46,77 @@ class StatsManager {
             this.stats.firstStart = this.stats.lastStart;
         }
     }
-
+    
+    // Сохранение статистики
     saveStats() {
         try {
+            // Создаём директорию если её нет
             const dir = path.dirname(this.statsFile);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
+            
             fs.writeFileSync(this.statsFile, JSON.stringify(this.stats, null, 2));
-        } catch (e) {}
+        } catch (e) {
+            console.error('❌ Ошибка сохранения статистики:', e.message);
+        }
     }
-
+    
+    // Обновление статистики температуры
     updateTempStats(temp) {
         this.stats.tempSum += temp;
         this.stats.tempCount++;
         this.stats.avgTemperature = this.stats.tempSum / this.stats.tempCount;
-
+        
         if (temp > this.stats.maxTemperature) {
             this.stats.maxTemperature = temp;
         }
     }
-
+    
+    // Увеличение счётчика спасений от перегрева
     incrementOverheatingPrevented() {
         this.stats.overheatingPrevented++;
     }
-
+    
+    // Обновление времени работы
     updateRuntime(seconds) {
         this.stats.totalRuntime += seconds;
+        
         const currentSessionTime = Math.floor((Date.now() - this.sessionStart) / 1000);
         if (currentSessionTime > this.stats.longestSession) {
             this.stats.longestSession = currentSessionTime;
         }
     }
-
+    
+    // Получение текущей статистики
     getStats() {
         return {
             ...this.stats,
             currentSessionTime: Math.floor((Date.now() - this.sessionStart) / 1000)
         };
     }
-
+    
+    // Форматирование времени
     formatTime(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         if (hours > 0) return `${hours}ч ${minutes}м`;
         return `${minutes}м`;
     }
-
+    
+    // Вывод статистики в консоль
     printStats() {
-        console.log(`\n📊 СТАТИСТИКА:`);
+        console.log(`\n📊 СТАТИСТИКА ЗА ВРЕМЯ ВЛАДЕНИЯ ${this.stats.owner}:`);
         console.log(`   • Всего сессий: ${this.stats.totalSessions}`);
         console.log(`   • Спасено от перегрева: ${this.stats.overheatingPrevented} раз`);
         console.log(`   • Средняя температура: ${this.stats.avgTemperature.toFixed(1)}°C`);
         console.log(`   • Самая высокая температура: ${this.stats.maxTemperature.toFixed(1)}°C`);
         console.log(`   • Общее время работы: ${this.formatTime(this.stats.totalRuntime)}`);
-        console.log(`   • Самая длинная сессия: ${this.formatTime(this.stats.longestSession)}\n`);
+        console.log(`   • Самая длинная сессия: ${this.formatTime(this.stats.longestSession)}`);
+        console.log(`   • Первый запуск: ${this.stats.firstStart ? new Date(this.stats.firstStart).toLocaleString('ru-RU') : 'сейчас'}\n`);
     }
-
+    
+    // Завершение сессии
     endSession() {
         const currentSessionTime = Math.floor((Date.now() - this.sessionStart) / 1000);
         this.stats.totalRuntime += currentSessionTime;

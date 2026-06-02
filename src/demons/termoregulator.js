@@ -41,21 +41,54 @@ let lastBoostChange = Date.now();
 let turboEnabled = false;
 
 function getCpuLoad() {
-    const cpus = os.cpus();
-    const idle = cpus.reduce((acc, c) => acc + Object.values(c.times).reduce((a, b) => a + b, 0), 0);
-    const total = cpus.reduce((acc, c) => acc + Object.values(c.times).reduce((a, b) => a + b, 0), 0);
-    return 100 - Math.round(100 * idle / total);
+    const avgLoad = os.loadavg()[0];
+    const numCpus = os.cpus().length;
+    const cpuUsage = (avgLoad / numCpus) * 100;
+    return Math.min(Math.round(cpuUsage), 100);
 }
 
 function getCpuTemperature() {
     try {
         const zones = fs.readdirSync('/sys/class/thermal').filter(f => f.startsWith('thermal_zone'));
+        let maxTemp = 0;
         for (const zone of zones) {
             const temp = parseInt(fs.readFileSync(`/sys/class/thermal/${zone}/temp`, 'utf8').trim());
-            if (!isNaN(temp) && temp > 0) return temp / 1000;
+            if (!isNaN(temp) && temp > 0) {
+                const tempC = temp / 1000;
+                maxTemp = Math.max(maxTemp, tempC);
+            }
         }
+        return maxTemp > 0 ? maxTemp : null;
     } catch (e) {}
     return null;
+}
+
+function getBatteryInfo() {
+    try {
+        const batteryPath = '/sys/class/power_supply';
+        const supplies = fs.readdirSync(batteryPath);
+        
+        for (const supply of supplies) {
+            if (supply.includes('BAT')) {
+                try {
+                    const capPath = path.join(batteryPath, supply, 'capacity');
+                    const statusPath = path.join(batteryPath, supply, 'status');
+                    
+                    const capacity = parseInt(fs.readFileSync(capPath, 'utf8').trim());
+                    const status = fs.readFileSync(statusPath, 'utf8').trim();
+                    
+                    return {
+                        capacity,
+                        status: status.toLowerCase(),
+                        isCharging: status.includes('Charging')
+                    };
+                } catch (e) {
+                    continue;
+                }
+            }
+        }
+    } catch (e) {}
+    return { capacity: 100, status: 'unknown', isCharging: false };
 }
 
 async function setPowerMode(isMax) {
@@ -96,7 +129,15 @@ app.get('/widget', (req, res) => {
 app.get('/api/status', async (req, res) => {
     const temp = getCpuTemperature();
     const load = getCpuLoad();
-    res.json({ temperature: temp, load, turboEnabled, autoMode, profile: turboEnabled ? 'performance' : 'power-saver' });
+    const battery = getBatteryInfo();
+    res.json({ 
+        temperature: temp, 
+        load, 
+        turboEnabled, 
+        autoMode, 
+        profile: turboEnabled ? 'performance' : 'power-saver',
+        battery
+    });
 });
 
 app.post('/api/turbo', async (req, res) => {

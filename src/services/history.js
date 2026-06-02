@@ -10,15 +10,17 @@ class HistoryManager {
             turboStates: []
         };
     }
-
+    
+    // Добавление в историю
     addToHistory(temp, load, turbo) {
         const now = new Date().toLocaleTimeString('ru-RU');
-
-        this.history.temps.push(Number(temp));
-        this.history.loads.push(Number(load));
+        
+        this.history.temps.push(temp);
+        this.history.loads.push(load);
         this.history.timestamps.push(now);
-        this.history.turboStates.push(Boolean(turbo));
-
+        this.history.turboStates.push(turbo);
+        
+        // Храним только нужное количество точек для текущего периода
         const maxPoints = HISTORY_PERIODS[this.currentPeriod].maxPoints;
         if (this.history.temps.length > maxPoints) {
             this.history.temps.shift();
@@ -27,30 +29,34 @@ class HistoryManager {
             this.history.turboStates.shift();
         }
     }
-
+    
+    // Получение истории
     getHistory() {
         return {
             ...this.history,
             currentPeriod: this.currentPeriod
         };
     }
-
+    
+    // Изменение периода
     setPeriod(period) {
         if (HISTORY_PERIODS[period]) {
             this.currentPeriod = period;
+            // Очищаем историю при смене периода
             this.clearHistory();
             return true;
         }
         return false;
     }
-
+    
+    // Очистка истории
     clearHistory() {
         this.history.temps = [];
         this.history.loads = [];
         this.history.timestamps = [];
         this.history.turboStates = [];
     }
-
+    
     getCurrentPeriod() {
         return this.currentPeriod;
     }

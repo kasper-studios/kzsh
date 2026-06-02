@@ -26,28 +26,23 @@ router.get('/status', async (req, res) => {
     try {
         const temperature = await temperatureReader.getCpuTemperature();
         const load = await getCpuLoad();
-        await batteryManager.updateStatus();
-        await processManager.updateProcesses();
-
-        // Обновляем статистику температуры только если датчик вернул валидное значение.
-        const validTemperature = Number.isFinite(temperature) && temperature > 0;
-        if (validTemperature) {
-            statsManager.updateTempStats(temperature);
-            historyManager.addToHistory(temperature, load, powerManager.getTurboState());
-        }
-
-        const stats = statsManager.getStats();
+        
+        // Обновляем статистику температуры
+        statsManager.updateTempStats(temperature);
+        
+        // Обновляем историю
+        historyManager.addToHistory(temperature, load, powerManager.getTurboState());
+        
         res.json({
-            temperature: validTemperature ? temperature : null,
+            temperature: temperature,
             load: load.toFixed(1),
             turboEnabled: powerManager.getTurboState(),
             autoMode: autoControl.getAutoMode(),
             intelligentMode: autoControl.getIntelligentMode(),
             detectedProcesses: processManager.getDetectedProcesses(),
-            saveCount: stats.overheatingPrevented,
+            saveCount: statsManager.getStats().overheatingPrevented,
             battery: batteryManager.getStatus(),
-            stats,
-            power: typeof powerManager.getBackendStatus === 'function' ? powerManager.getBackendStatus() : undefined
+            stats: statsManager.getStats()
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

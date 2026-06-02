@@ -11,8 +11,7 @@ const {
     IDLE_TEMP_THRESHOLD,
     IDLE_LOAD_THRESHOLD,
     HIGH_LOAD_THRESHOLD,
-    TEMP_HISTORY_SIZE,
-    COOLDOWN
+    TEMP_HISTORY_SIZE
 } = require('../config/constants');
 
 class AutoControl {
@@ -33,6 +32,7 @@ class AutoControl {
             return { trend: 'unknown', rate: 0 };
         }
 
+        // Вычисляем скорость роста температуры
         const oldTemp = this.tempHistory[0];
         const rate = (currentTemp - oldTemp) / this.tempHistory.length;
 
@@ -45,26 +45,21 @@ class AutoControl {
         return { trend, rate: rate.toFixed(2) };
     }
 
+
     // Основная логика автоконтроля
     async performAutoControl(temp, load) {
         if (!this.autoMode) return;
 
-        if (!Number.isFinite(temp) || temp <= 0) {
-            console.log('⚠️ Автоконтроль пропущен: нет валидной температуры CPU');
-            return;
-        }
-
+        // КРИТИЧЕСКАЯ ЗАЩИТА — всегда срабатывает, даже на батарее (игнорирует всё)
         const turboEnabled = powerManager.getTurboState();
-
-        // КРИТИЧЕСКАЯ ЗАЩИТА — всегда срабатывает
         if (temp >= TEMP_THRESHOLD) {
             if (turboEnabled) {
-                console.log(`🔥🔥🔥 ПЕРЕГРЕВ ${temp.toFixed(1)}°C! АВАРИЙНОЕ ОТКЛЮЧЕНИЕ ТУРБО!`);
+                console.log(`🔥🔥🔥 ПЕРЕГРЕВ ${temp}°C! АВАРИЙНОЕ ОТКЛЮЧЕНИЕ БУСТА!`);
                 statsManager.incrementOverheatingPrevented();
                 statsManager.saveStats();
                 await powerManager.setPowerMode(false);
             } else {
-                console.log(`🔥 КРИТИЧЕСКАЯ ТЕМПЕРАТУРА ${temp.toFixed(1)}°C! Турбо выключен, ждём охлаждения...`);
+                console.log(`🔥 КРИТИЧЕСКАЯ ТЕМПЕРАТУРА ${temp}°C! Буст выключен, ждём охлаждения...`);
             }
             return;
         }
@@ -74,7 +69,7 @@ class AutoControl {
         if (!batteryManager.canUseBoost()) {
             if (turboEnabled) {
                 const status = batteryManager.getStatus();
-                console.log(`🔋 Батарея: ${status.isCharging ? 'зарядка' : 'разряд'}, ${status.level}% - отключаю турбо`);
+                console.log(`🔋 Батарея: ${status.isCharging ? 'зарядка' : 'отключена'}, ${status.level}% - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }
             return;
@@ -90,11 +85,11 @@ class AutoControl {
         // Проверяем cooldown
         const canChange = powerManager.canChange();
 
-        console.log(`📊 ${temp.toFixed(1)}°C (${trend} ${rate}°C/цикл), ${load.toFixed(1)}%, Турбо: ${turboEnabled ? 'ВКЛ' : 'ВЫКЛ'}, Cooldown: ${canChange ? 'OK' : powerManager.getTimeUntilNextChange() + 's'}`);
+        console.log(`📊 ${temp.toFixed(1)}°C (${trend} ${rate}°C/цикл), ${load.toFixed(1)}%, Буст: ${turboEnabled ? 'ВКЛ' : 'ВЫКЛ'}, Cooldown: ${canChange ? 'OK' : powerManager.getTimeUntilNextChange() + 's'}`);
 
         // ПРЕДИКТИВНОЕ ВЫКЛЮЧЕНИЕ
         if (trend === 'rising-fast' && temp > TEMP_MEDIUM && turboEnabled) {
-            console.log(`⚠️ Температура растёт быстро (${rate}°C/цикл) при ${temp.toFixed(1)}°C - превентивно отключаю турбо`);
+            console.log(`⚠️ Температура растёт быстро (${rate}°C/цикл) при ${temp}°C - превентивно отключаю буст`);
             statsManager.incrementOverheatingPrevented();
             statsManager.saveStats();
             await powerManager.setPowerMode(false);
@@ -103,19 +98,26 @@ class AutoControl {
 
         // Интеллектуальный режим (с учетом cooldown)
         if (this.intelligentMode && canChange) {
+            // Если есть важные процессы - разрешаем буст
             if (detectedProcesses.length > 0) {
                 if (!turboEnabled && temp < TEMP_HIGH) {
-                    console.log(`🎮 Обнаружены процессы: ${detectedProcesses.join(', ')} - включаю турбо (${temp.toFixed(1)}°C)`);
+                    console.log(`🎮 Обнаружены процессы: ${detectedProcesses.join(', ')} - включаю буст (${temp}°C)`);
                     await powerManager.setPowerMode(true);
                 }
-            } else if (load < IDLE_LOAD_THRESHOLD && temp > IDLE_TEMP_THRESHOLD && turboEnabled) {
-                console.log(`💤 Простой (${load.toFixed(1)}%) + жарко (${temp.toFixed(1)}°C) - отключаю турбо`);
+            }
+            // Если простой и жарко - вырубаем буст
+            else if (load < IDLE_LOAD_THRESHOLD && temp > IDLE_TEMP_THRESHOLD && turboEnabled) {
+                console.log(`💤 Простой (${load.toFixed(1)}%) + жарко (${temp}°C) - отключаю буст`);
                 await powerManager.setPowerMode(false);
-            } else if (load >= IDLE_LOAD_THRESHOLD && temp < TEMP_SAFE && !turboEnabled) {
-                console.log(`⚡ Нагрузка ${load.toFixed(1)}% + температура ${temp.toFixed(1)}°C (безопасно) - включаю турбо`);
+            }
+            // Если нагрузка есть и температура БЕЗОПАСНАЯ - включаем буст
+            else if (load >= IDLE_LOAD_THRESHOLD && temp < TEMP_SAFE && !turboEnabled) {
+                console.log(`⚡ Нагрузка ${load.toFixed(1)}% + температура ${temp}°C (безопасно) - включаю буст`);
                 await powerManager.setPowerMode(true);
-            } else if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && turboEnabled) {
-                console.log(`🔥 Высокая нагрузка ${load.toFixed(1)}% + жарко ${temp.toFixed(1)}°C - отключаю турбо`);
+            }
+            // Если высокая нагрузка и температура ВЫСОКАЯ - вырубаем буст
+            else if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && turboEnabled) {
+                console.log(`🔥 Высокая нагрузка ${load.toFixed(1)}% + жарко ${temp}°C - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }
         }
@@ -123,10 +125,10 @@ class AutoControl {
         // Базовый режим (без интеллекта, но с cooldown)
         if (!this.intelligentMode && canChange) {
             if (temp < TEMP_SAFE && !turboEnabled) {
-                console.log(`❄️ Температура ${temp.toFixed(1)}°C (безопасно) - включаю турбо`);
+                console.log(`❄️ Температура ${temp}°C (безопасно) - включаю буст`);
                 await powerManager.setPowerMode(true);
             } else if (temp > TEMP_HIGH && turboEnabled) {
-                console.log(`🔥 Температура ${temp.toFixed(1)}°C (высокая) - отключаю турбо`);
+                console.log(`🔥 Температура ${temp}°C (высокая) - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }
         }

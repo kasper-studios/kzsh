@@ -3,199 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KZSH Терморегулятор CPU</title>
+    <title>Терморегулятор CPU</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        :root {
-            --bg-0: #050507;
-            --bg-1: #0b0712;
-            --bg-2: #15101f;
-            --card: rgba(16, 12, 24, 0.94);
-            --card-2: rgba(27, 20, 39, 0.94);
-            --purple: #9d4edd;
-            --purple-2: #7c4dff;
-            --purple-light: #c77dff;
-            --purple-soft: rgba(157, 78, 221, 0.16);
-            --green: #4ade80;
-            --red: #ff4d6d;
-            --yellow: #ffd166;
-            --blue: #70d6ff;
-            --text: #f6efff;
-            --muted: #b9a8cf;
-            --border: rgba(199, 125, 255, 0.35);
-            --shadow: rgba(0, 0, 0, 0.75);
-        }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
-            color: var(--text);
-            background:
-                radial-gradient(circle at 20% 15%, rgba(124, 77, 255, 0.35), transparent 32%),
-                radial-gradient(circle at 85% 10%, rgba(157, 78, 221, 0.24), transparent 30%),
-                linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 46%, #14051f 100%);
         }
-
         .container {
-            background: linear-gradient(180deg, rgba(16, 12, 24, 0.96), rgba(8, 6, 12, 0.96));
-            border: 1px solid var(--border);
-            border-radius: 24px;
+            background: white;
+            border-radius: 20px;
             padding: 40px;
-            box-shadow: 0 24px 80px var(--shadow), 0 0 60px rgba(157, 78, 221, 0.14);
-            max-width: 980px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
             width: 100%;
-            backdrop-filter: blur(14px);
         }
-
         h1 {
             text-align: center;
-            color: var(--purple-light);
-            margin-bottom: 26px;
-            font-size: 30px;
-            letter-spacing: 0.3px;
-            text-shadow: 0 0 22px rgba(199, 125, 255, 0.45);
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
         }
-
-        h3 {
-            color: var(--purple-light);
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
         .temp-display {
             text-align: center;
-            margin: 26px 0 30px;
+            margin: 30px 0;
         }
-
         .temp-value {
-            font-size: 78px;
-            line-height: 1;
-            font-weight: 800;
-            color: var(--purple-light);
-            text-shadow: 0 0 36px rgba(199, 125, 255, 0.52);
+            font-size: 72px;
+            font-weight: bold;
+            color: #667eea;
         }
-
         .temp-label {
             font-size: 18px;
-            color: var(--muted);
-            margin-top: 8px;
+            color: #666;
+            margin-top: 10px;
         }
-
+        .load-display {
+            text-align: center;
+            font-size: 24px;
+            color: #666;
+            margin-bottom: 30px;
+        }
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin: 20px 0;
         }
-
         .stat-card {
-            background: var(--card-2);
-            border: 1px solid var(--border);
+            background: #f8f9fa;
             padding: 15px;
-            border-radius: 14px;
+            border-radius: 10px;
             text-align: center;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 24px rgba(0,0,0,0.22);
         }
-
         .stat-label {
             font-size: 12px;
-            color: var(--muted);
-            margin-bottom: 6px;
+            color: #666;
+            margin-bottom: 5px;
         }
-
         .stat-value {
             font-size: 20px;
-            font-weight: 800;
-            color: var(--purple-light);
+            font-weight: bold;
+            color: #667eea;
         }
-
-        .battery-card {
-            margin: 15px 0;
-            background: rgba(157, 78, 221, 0.12);
-        }
-
-        .processes {
-            margin: 15px 0 18px;
-            padding: 12px 14px;
-            background: rgba(112, 214, 255, 0.12);
-            border: 1px solid rgba(112, 214, 255, 0.25);
-            border-radius: 12px;
-            font-size: 13px;
-            color: var(--blue);
-            min-height: 20px;
-        }
-
         .controls {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-
         .control-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 14px;
             padding: 15px;
-            background: var(--card-2);
-            border: 1px solid rgba(199, 125, 255, 0.24);
-            border-radius: 14px;
+            background: #f5f5f5;
+            border-radius: 10px;
         }
-
         .control-label {
             font-size: 16px;
-            font-weight: 650;
-            color: var(--text);
+            font-weight: 500;
+            color: #333;
         }
-
         button {
             padding: 10px 25px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 14px;
-            font-weight: 750;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.25s, box-shadow 0.25s, opacity 0.25s;
+            transition: all 0.3s;
         }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 22px rgba(157, 78, 221, 0.25);
-        }
-
         .btn-turbo {
-            background: linear-gradient(135deg, var(--green), #22c55e);
-            color: #06110a;
-        }
-
-        .btn-turbo.off {
-            background: linear-gradient(135deg, var(--red), #dc2626);
+            background: #4CAF50;
             color: white;
         }
-
+        .btn-turbo.off {
+            background: #f44336;
+        }
+        .btn-turbo:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
         .toggle {
             position: relative;
-            flex: 0 0 auto;
-            width: 62px;
-            height: 32px;
-            background: #332b3f;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 999px;
+            width: 60px;
+            height: 30px;
+            background: #ccc;
+            border-radius: 15px;
             cursor: pointer;
-            transition: background 0.3s, box-shadow 0.3s;
+            transition: background 0.3s;
         }
-
         .toggle.active {
-            background: linear-gradient(135deg, var(--purple-2), var(--purple));
-            box-shadow: 0 0 20px rgba(157, 78, 221, 0.45);
+            background: #4CAF50;
         }
-
         .toggle::after {
             content: '';
             position: absolute;
@@ -206,100 +132,85 @@
             top: 2px;
             left: 2px;
             transition: left 0.3s;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.35);
         }
-
-        .toggle.active::after { left: 32px; }
-
+        .toggle.active::after {
+            left: 32px;
+        }
         .status {
             text-align: center;
             margin-top: 20px;
-            padding: 12px;
-            border-radius: 12px;
+            padding: 10px;
+            border-radius: 8px;
             font-size: 14px;
         }
-
         .status.warning {
-            background: rgba(255, 77, 109, 0.14);
-            color: #ffb3c1;
-            border: 1px solid rgba(255, 77, 109, 0.45);
+            background: #fff3cd;
+            color: #856404;
         }
-
         .status.ok {
-            background: rgba(74, 222, 128, 0.12);
-            color: #bbf7d0;
-            border: 1px solid rgba(74, 222, 128, 0.38);
+            background: #d4edda;
+            color: #155724;
         }
-
         .chart-container {
             margin: 30px 0;
             padding: 20px;
-            background: var(--card-2);
-            border: 1px solid var(--border);
-            border-radius: 14px;
+            background: #f8f9fa;
+            border-radius: 10px;
         }
-
         .period-selector {
             display: flex;
             gap: 10px;
             justify-content: center;
-            flex-wrap: wrap;
             margin-bottom: 15px;
         }
-
         .period-btn {
             padding: 8px 16px;
-            border: 1px solid var(--purple);
-            background: rgba(157, 78, 221, 0.1);
-            color: var(--purple-light);
-            border-radius: 9px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
         }
-
         .period-btn.active {
-            background: linear-gradient(135deg, var(--purple-2), var(--purple));
+            background: #667eea;
             color: white;
         }
-
+        .period-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .processes {
+            margin: 15px 0;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #1565c0;
+            min-height: 20px;
+        }
         .mode-badge {
             display: inline-block;
             padding: 4px 12px;
-            background: rgba(157, 78, 221, 0.22);
-            border: 1px solid var(--border);
-            color: var(--purple-light);
-            border-radius: 999px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
             font-size: 12px;
             margin-left: 10px;
-        }
-
-        footer {
-            text-align: center;
-            padding: 20px;
-            opacity: 0.78;
-            font-size: 12px;
-            margin-top: 30px;
-            border-top: 1px solid rgba(199, 125, 255, 0.24);
-            color: var(--muted);
-        }
-
-        footer a { color: var(--purple-light); text-decoration: none; }
-
-        @media (max-width: 760px) {
-            .container { padding: 24px; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .control-row { align-items: flex-start; flex-direction: column; }
-            .temp-value { font-size: 62px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌡️ KZSH Терморегулятор CPU</h1>
-
+        <h1>🌡️ Терморегулятор CPU</h1>
+        
         <div class="temp-display">
             <div class="temp-value" id="temp">--</div>
             <div class="temp-label">°C</div>
         </div>
-
+        
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Нагрузка</div>
@@ -314,20 +225,24 @@
                 <div class="stat-value" id="avgTemp">--</div>
             </div>
         </div>
-
-        <div class="stat-card battery-card">
+        
+        <div class="stat-card" style="margin: 15px 0; background: #f0f4ff;">
             <div class="stat-label">Питание</div>
             <div class="stat-value" id="battery" style="font-size: 16px;">🔌 Проверка...</div>
         </div>
-
-        <div class="processes" id="processes">Процессы не обнаружены</div>
-
+        
+        <div class="processes" id="processes">
+            Процессы не обнаружены
+        </div>
+        
         <div class="controls">
             <div class="control-row">
-                <span class="control-label">Турбо / Performance profile</span>
-                <button class="btn-turbo" id="turboBtn" onclick="toggleTurbo()">Выключить</button>
+                <span class="control-label">Турбобуст</span>
+                <button class="btn-turbo" id="turboBtn" onclick="toggleTurbo()">
+                    Выключить
+                </button>
             </div>
-
+            
             <div class="control-row">
                 <span class="control-label">
                     Автоматический режим
@@ -335,27 +250,29 @@
                 </span>
                 <div class="toggle active" id="autoToggle" onclick="toggleAuto()"></div>
             </div>
-
+            
             <div class="control-row">
                 <span class="control-label">Интеллектуальный режим</span>
                 <div class="toggle active" id="intelligentToggle" onclick="toggleIntelligent()"></div>
             </div>
         </div>
-
+        
         <div class="chart-container">
             <div class="period-selector">
-                <button class="period-btn active" onclick="changePeriod('2min', event)">2 мин</button>
-                <button class="period-btn" onclick="changePeriod('5min', event)">5 мин</button>
-                <button class="period-btn" onclick="changePeriod('10min', event)">10 мин</button>
-                <button class="period-btn" onclick="changePeriod('1hour', event)">1 час</button>
+                <button class="period-btn active" onclick="changePeriod('2min')">2 мин</button>
+                <button class="period-btn" onclick="changePeriod('5min')">5 мин</button>
+                <button class="period-btn" onclick="changePeriod('10min')">10 мин</button>
+                <button class="period-btn" onclick="changePeriod('1hour')">1 час</button>
             </div>
             <canvas id="tempChart"></canvas>
         </div>
-
-        <div class="status ok" id="status">Система работает нормально</div>
-
+        
+        <div class="status ok" id="status">
+            Система работает нормально
+        </div>
+        
         <div class="chart-container" style="margin-top: 20px;">
-            <h3>📊 Статистика за время владения</h3>
+            <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">📊 Статистика за время владения</h3>
             <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
                 <div class="stat-card">
                     <div class="stat-label">Всего сессий</div>
@@ -363,7 +280,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Спасено от перегрева</div>
-                    <div class="stat-value" id="statSaved" style="color: var(--green);">--</div>
+                    <div class="stat-value" id="statSaved" style="color: #4CAF50;">--</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Средняя температура</div>
@@ -371,7 +288,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Макс. температура</div>
-                    <div class="stat-value" id="statMaxTemp" style="color: var(--red);">--</div>
+                    <div class="stat-value" id="statMaxTemp" style="color: #f44336;">--</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Общее время работы</div>
@@ -382,30 +299,26 @@
                     <div class="stat-value" id="statLongestSession">--</div>
                 </div>
             </div>
-            <div style="text-align: center; margin-top: 15px; font-size: 12px; color: var(--muted);">
+            <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
                 <span id="statOwner">@kasperenok</span> • Текущая сессия: <span id="statCurrentSession">0м</span>
             </div>
         </div>
-
-        <footer>
-            <p>🔧 Сделано <a href="https://github.com/kasper-studios" target="_blank">@kasperenok</a> в 2026 • Linux port inside KZSH</p>
-            <p style="margin-top: 10px;">Если ты читаешь это — значит, этот ноут теперь под Linux. Береги его, он видел много говнокода 💀</p>
-            <p style="font-size: 10px; margin-top: 10px; color: #8e7ba6;">P.S. Эта прога спасла проц от перегрева <span id="saveCount">0</span> раз. Не удаляй её, она умнее половины родных утилит.</p>
+        
+        <footer style="text-align: center; padding: 20px; opacity: 0.6; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee;">
+            <p>🔧 Сделано <a href="https://github.com/kasper-studios" target="_blank" style="color: #667eea; text-decoration: none;">@kasperenok</a> в 2026</p>
+            <p style="margin-top: 10px;">Если ты читаешь это — значит, этот ноут теперь твой. Береги его, он видел много говнокода 💀</p>
+            <p style="font-size: 10px; margin-top: 10px; color: #999;">P.S. Эта прога спасла проц от перегрева <span id="saveCount">0</span> раз. Не удаляй её, она умнее родных утилит ASUS.</p>
         </footer>
     </div>
 
     <script>
-        let turboEnabled = true;
-        let autoMode = true;
-        let intelligentMode = true;
+        let turboEnabled = true; // Считаем что буст включен по умолчанию
+        let autoMode = true; // Автоматический режим включен по умолчанию
+        let intelligentMode = true; // Умный режим включен по умолчанию
         let chart = null;
         let currentPeriod = '2min';
 
-        function safeFixed(value, digits = 1) {
-            const n = Number(value);
-            return Number.isFinite(n) ? n.toFixed(digits) : '--';
-        }
-
+        // Инициализация графика
         function initChart() {
             const ctx = document.getElementById('tempChart').getContext('2d');
             chart = new Chart(ctx, {
@@ -415,68 +328,70 @@
                     datasets: [{
                         label: 'Температура (°C)',
                         data: [],
-                        borderColor: '#c77dff',
-                        backgroundColor: 'rgba(199, 125, 255, 0.13)',
-                        pointRadius: 0,
-                        tension: 0.38,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
                         yAxisID: 'y'
                     }, {
                         label: 'Нагрузка (%)',
                         data: [],
-                        borderColor: '#4ade80',
-                        backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                        pointRadius: 0,
-                        tension: 0.38,
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4,
                         yAxisID: 'y1'
                     }]
                 },
                 options: {
                     responsive: true,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { labels: { color: '#f6efff' } }
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
                     },
                     scales: {
-                        x: {
-                            ticks: { color: '#b9a8cf', maxTicksLimit: 8 },
-                            grid: { color: 'rgba(199, 125, 255, 0.08)' }
-                        },
                         y: {
                             type: 'linear',
                             display: true,
                             position: 'left',
-                            ticks: { color: '#c77dff' },
-                            grid: { color: 'rgba(199, 125, 255, 0.1)' },
-                            title: { display: true, text: 'Температура (°C)', color: '#c77dff' }
+                            title: {
+                                display: true,
+                                text: 'Температура (°C)'
+                            }
                         },
                         y1: {
                             type: 'linear',
                             display: true,
                             position: 'right',
-                            min: 0,
-                            max: 100,
-                            ticks: { color: '#4ade80' },
-                            title: { display: true, text: 'Нагрузка (%)', color: '#4ade80' },
-                            grid: { drawOnChartArea: false }
+                            title: {
+                                display: true,
+                                text: 'Нагрузка (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
                         }
                     }
                 }
             });
         }
 
-        async function changePeriod(period, event) {
+        async function changePeriod(period) {
             currentPeriod = period;
-
-            document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
-            if (event?.target) event.target.classList.add('active');
-
+            
+            // Обновляем активную кнопку
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Отправляем запрос на сервер
             try {
                 await fetch('/api/history/period', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ period })
                 });
-
+                
+                // Очищаем график
                 chart.data.labels = [];
                 chart.data.datasets[0].data = [];
                 chart.data.datasets[1].data = [];
@@ -490,10 +405,10 @@
             try {
                 const res = await fetch('/api/history');
                 const data = await res.json();
-
-                chart.data.labels = data.timestamps || [];
-                chart.data.datasets[0].data = data.temps || [];
-                chart.data.datasets[1].data = data.loads || [];
+                
+                chart.data.labels = data.timestamps;
+                chart.data.datasets[0].data = data.temps;
+                chart.data.datasets[1].data = data.loads;
                 chart.update('none');
             } catch (error) {
                 console.error('Ошибка обновления графика:', error);
@@ -504,85 +419,79 @@
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'API status error');
-
-                const temperature = Number(data.temperature);
-                const load = Number(data.load);
-
-                document.getElementById('temp').textContent = safeFixed(temperature);
-                document.getElementById('load').textContent = safeFixed(load) + '%';
-
+                
+                document.getElementById('temp').textContent = data.temperature.toFixed(1);
+                document.getElementById('load').textContent = data.load + '%';
+                
+                // Обновляем статистику
                 const historyRes = await fetch('/api/history');
                 const history = await historyRes.json();
-                const temps = (history.temps || []).map(Number).filter(Number.isFinite);
-
-                if (temps.length > 0) {
-                    const maxTemp = Math.max(...temps);
-                    const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
+                
+                if (history.temps.length > 0) {
+                    const maxTemp = Math.max(...history.temps);
+                    const avgTemp = history.temps.reduce((a, b) => a + b, 0) / history.temps.length;
                     document.getElementById('maxTemp').textContent = maxTemp.toFixed(1) + '°C';
                     document.getElementById('avgTemp').textContent = avgTemp.toFixed(1) + '°C';
                 }
-
+                
+                // Обновляем счётчик спасений
                 if (data.saveCount !== undefined) {
                     document.getElementById('saveCount').textContent = data.saveCount;
                 }
-
+                
+                // Обновляем статус батареи
                 if (data.battery) {
                     const batteryDiv = document.getElementById('battery');
-                    const icon = data.battery.hasBattery === false ? '🖥️' : (data.battery.isCharging ? '🔌' : '🔋');
-                    const status = data.battery.hasBattery === false ? 'Стационарное питание' : (data.battery.isCharging ? 'Зарядка' : 'Батарея');
+                    const icon = data.battery.isCharging ? '🔌' : '🔋';
+                    const status = data.battery.isCharging ? 'Зарядка' : 'Батарея';
                     batteryDiv.textContent = `${icon} ${status}: ${data.battery.level}%`;
-
-                    if (data.battery.hasBattery !== false && (!data.battery.isCharging || data.battery.level < 50)) {
-                        batteryDiv.style.color = 'var(--red)';
+                    
+                    if (!data.battery.isCharging || data.battery.level < 50) {
+                        batteryDiv.style.color = '#f44336';
                     } else {
-                        batteryDiv.style.color = 'var(--green)';
+                        batteryDiv.style.color = '#4CAF50';
                     }
                 }
-
+                
+                // Обновляем общую статистику
                 if (data.stats) {
                     const formatTime = (seconds) => {
-                        seconds = Number(seconds) || 0;
                         const hours = Math.floor(seconds / 3600);
                         const minutes = Math.floor((seconds % 3600) / 60);
                         if (hours > 0) return `${hours}ч ${minutes}м`;
                         return `${minutes}м`;
                     };
-
+                    
                     document.getElementById('statSessions').textContent = data.stats.totalSessions;
                     document.getElementById('statSaved').textContent = data.stats.overheatingPrevented + ' раз';
-                    document.getElementById('statAvgTemp').textContent = safeFixed(data.stats.avgTemperature) + '°C';
-                    document.getElementById('statMaxTemp').textContent = safeFixed(data.stats.maxTemperature) + '°C';
+                    document.getElementById('statAvgTemp').textContent = data.stats.avgTemperature.toFixed(1) + '°C';
+                    document.getElementById('statMaxTemp').textContent = data.stats.maxTemperature.toFixed(1) + '°C';
                     document.getElementById('statTotalTime').textContent = formatTime(data.stats.totalRuntime);
                     document.getElementById('statLongestSession').textContent = formatTime(data.stats.longestSession);
                     document.getElementById('statCurrentSession').textContent = formatTime(data.stats.currentSessionTime);
                     document.getElementById('statOwner').textContent = data.stats.owner;
                 }
-
-                turboEnabled = Boolean(data.turboEnabled);
-                autoMode = Boolean(data.autoMode);
-                intelligentMode = Boolean(data.intelligentMode);
-
+                
+                turboEnabled = data.turboEnabled;
+                autoMode = data.autoMode;
+                intelligentMode = data.intelligentMode;
+                
+                // Обновляем процессы
                 const processesDiv = document.getElementById('processes');
                 if (data.detectedProcesses && data.detectedProcesses.length > 0) {
                     processesDiv.textContent = '🎮 Обнаружены: ' + data.detectedProcesses.join(', ');
-                    processesDiv.style.background = 'rgba(255, 209, 102, 0.13)';
-                    processesDiv.style.borderColor = 'rgba(255, 209, 102, 0.35)';
-                    processesDiv.style.color = 'var(--yellow)';
+                    processesDiv.style.background = '#fff3cd';
+                    processesDiv.style.color = '#856404';
                 } else {
                     processesDiv.textContent = '💤 Процессы не обнаружены';
-                    processesDiv.style.background = 'rgba(112, 214, 255, 0.12)';
-                    processesDiv.style.borderColor = 'rgba(112, 214, 255, 0.25)';
-                    processesDiv.style.color = 'var(--blue)';
+                    processesDiv.style.background = '#e3f2fd';
+                    processesDiv.style.color = '#1565c0';
                 }
-
+                
                 updateUI();
-                updateStatusMessage(temperature, load);
+                updateStatusMessage(data.temperature, parseFloat(data.load));
             } catch (error) {
                 console.error('Ошибка получения статуса:', error);
-                const status = document.getElementById('status');
-                status.className = 'status warning';
-                status.textContent = '⚠️ API недоступен: ' + error.message;
             }
         }
 
@@ -591,7 +500,7 @@
             const autoToggle = document.getElementById('autoToggle');
             const intelligentToggle = document.getElementById('intelligentToggle');
             const modeBadge = document.getElementById('modeBadge');
-
+            
             if (turboEnabled) {
                 turboBtn.textContent = 'Выключить';
                 turboBtn.classList.remove('off');
@@ -599,11 +508,11 @@
                 turboBtn.textContent = 'Включить';
                 turboBtn.classList.add('off');
             }
-
+            
             if (autoMode) {
                 autoToggle.classList.add('active');
                 turboBtn.disabled = true;
-                turboBtn.style.opacity = '0.48';
+                turboBtn.style.opacity = '0.5';
                 modeBadge.textContent = intelligentMode ? 'Умный' : 'Базовый';
             } else {
                 autoToggle.classList.remove('active');
@@ -611,22 +520,22 @@
                 turboBtn.style.opacity = '1';
                 modeBadge.textContent = 'Выкл';
             }
-
-            if (intelligentMode) intelligentToggle.classList.add('active');
-            else intelligentToggle.classList.remove('active');
+            
+            if (intelligentMode) {
+                intelligentToggle.classList.add('active');
+            } else {
+                intelligentToggle.classList.remove('active');
+            }
         }
 
         function updateStatusMessage(temp, load) {
             const status = document.getElementById('status');
-            if (!Number.isFinite(temp)) {
-                status.className = 'status warning';
-                status.textContent = '⚠️ Не удалось прочитать температуру CPU';
-            } else if (temp >= 90) {
+            if (temp >= 90) {
                 status.className = 'status warning';
                 status.textContent = '🔥 КРИТИЧЕСКАЯ ТЕМПЕРАТУРА!';
             } else if (temp >= 88) {
                 status.className = 'status warning';
-                status.textContent = '⚠️ Очень жарко! Скоро вырублю турбо';
+                status.textContent = '⚠️ Очень жарко! Скоро вырублю буст';
             } else if (temp >= 85) {
                 status.className = 'status warning';
                 status.textContent = '⚡ Высокая температура (но в пределах нормы)';
@@ -638,7 +547,7 @@
                 status.textContent = '🔥 Высокая нагрузка ' + load.toFixed(0) + '% + жарко ' + temp.toFixed(0) + '°C';
             } else if (load < 10 && temp > 82) {
                 status.className = 'status warning';
-                status.textContent = '💤 Простой + жарко (турбо не нужен)';
+                status.textContent = '💤 Простой + жарко (буст не нужен)';
             } else if (temp < 75) {
                 status.className = 'status ok';
                 status.textContent = '❄️ Отличная температура!';
@@ -650,18 +559,16 @@
 
         async function toggleTurbo() {
             if (autoMode) return;
+            
             try {
-                const res = await fetch('/api/turbo', {
+                await fetch('/api/turbo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled: !turboEnabled })
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Не удалось переключить турбо');
                 await updateStatus();
             } catch (error) {
                 console.error('Ошибка переключения турбо:', error);
-                alert('Не удалось переключить режим питания. Возможно нужны sudo/root права или power-profiles-daemon/cpupower.\n\n' + error.message);
             }
         }
 

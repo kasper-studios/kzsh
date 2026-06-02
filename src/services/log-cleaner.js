@@ -1,70 +1,84 @@
 const fs = require('fs');
 const path = require('path');
-const { LOG_DIR, MAX_LOG_AGE, MAX_LOG_SIZE } = require('../config/constants');
+const { LOG_DIR } = require('../config/constants');
 
 class LogCleaner {
     constructor() {
         this.logDir = path.resolve(LOG_DIR);
-        this.maxLogAge = MAX_LOG_AGE;
-        this.maxLogSize = MAX_LOG_SIZE;
-        this.cleanInterval = 24 * 60 * 60 * 1000;
+        this.maxLogAge = 7 * 24 * 60 * 60 * 1000; // 7 дней
+        this.maxLogSize = 10 * 1024 * 1024; // 10 MB
+        this.cleanInterval = 24 * 60 * 60 * 1000; // Раз в сутки
         this.lastClean = 0;
     }
-
+    
+    // Получение размера файла
     getFileSize(filePath) {
         try {
-            return fs.statSync(filePath).size;
-        } catch (error) {
+            const stats = fs.statSync(filePath);
+            return stats.size;
+        } catch (e) {
             return 0;
         }
     }
-
+    
+    // Получение возраста файла
     getFileAge(filePath) {
         try {
-            return Date.now() - fs.statSync(filePath).mtime.getTime();
-        } catch (error) {
+            const stats = fs.statSync(filePath);
+            return Date.now() - stats.mtime.getTime();
+        } catch (e) {
             return 0;
         }
     }
-
+    
+    // Ротация лога (переименование с датой)
     rotateLog(logFile) {
         try {
-            const date = new Date().toISOString().split('T')[0];
+            const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
             const ext = path.extname(logFile);
             const base = path.basename(logFile, ext);
             const dir = path.dirname(logFile);
-
+            
             let counter = 1;
             let newName = path.join(dir, `${base}-${date}${ext}`);
+            
+            // Если файл с такой датой уже есть - добавляем счётчик
             while (fs.existsSync(newName)) {
                 newName = path.join(dir, `${base}-${date}-${counter}${ext}`);
                 counter++;
             }
-
+            
             fs.renameSync(logFile, newName);
             console.log(`📦 Лог заархивирован: ${path.basename(newName)}`);
+            
             return newName;
-        } catch (error) {
-            console.error('❌ Ошибка ротации лога:', error.message);
+        } catch (e) {
+            console.error('❌ Ошибка ротации лога:', e.message);
             return null;
         }
     }
-
+    
+    // Удаление старых логов
     deleteOldLogs() {
         try {
-            if (!fs.existsSync(this.logDir)) return { deleted: 0, size: 0 };
-
+            if (!fs.existsSync(this.logDir)) {
+                return { deleted: 0, size: 0 };
+            }
+            
             const files = fs.readdirSync(this.logDir);
             let deleted = 0;
             let freedSize = 0;
-
+            
             for (const file of files) {
-                if (file === 'termoregulator.log' || file === 'stats.json') continue;
-
+                // Пропускаем текущий лог и stats.json
+                if (file === 'termoregulator.log' || file === 'stats.json') {
+                    continue;
+                }
+                
                 const filePath = path.join(this.logDir, file);
-                if (!fs.statSync(filePath).isFile()) continue;
-
                 const age = this.getFileAge(filePath);
+                
+                // Удаляем файлы старше 7 дней
                 if (age > this.maxLogAge) {
                     const size = this.getFileSize(filePath);
                     fs.unlinkSync(filePath);
@@ -73,45 +87,58 @@ class LogCleaner {
                     console.log(`🗑️ Удалён старый лог: ${file} (${(size / 1024).toFixed(1)} KB)`);
                 }
             }
-
+            
             return { deleted, size: freedSize };
-        } catch (error) {
-            console.error('❌ Ошибка удаления старых логов:', error.message);
+        } catch (e) {
+            console.error('❌ Ошибка удаления старых логов:', e.message);
             return { deleted: 0, size: 0 };
         }
     }
-
+    
+    // Проверка и ротация текущего лога
     checkCurrentLog() {
         const logFile = path.join(this.logDir, 'termoregulator.log');
-        if (!fs.existsSync(logFile)) return { rotated: false, reason: 'not_exists' };
-
+        
+        if (!fs.existsSync(logFile)) {
+            return { rotated: false, reason: 'not_exists' };
+        }
+        
         const size = this.getFileSize(logFile);
+        
+        // Если лог больше 10 MB - ротируем
         if (size > this.maxLogSize) {
             this.rotateLog(logFile);
             return { rotated: true, reason: 'size', size };
         }
-
+        
         return { rotated: false, size };
     }
-
+    
+    // Автоматическая очистка
     async performCleanup() {
         const now = Date.now();
+        
+        // Проверяем не чаще раза в сутки
         if (now - this.lastClean < this.cleanInterval) {
             return { skipped: true, reason: 'too_soon' };
         }
-
+        
         this.lastClean = now;
+        
         console.log('🧹 Запуск очистки логов...');
-
+        
+        // Проверяем текущий лог
         const rotateResult = this.checkCurrentLog();
+        
+        // Удаляем старые логи
         const deleteResult = this.deleteOldLogs();
-
+        
         if (deleteResult.deleted > 0) {
             console.log(`✅ Очистка завершена: удалено ${deleteResult.deleted} файлов, освобождено ${(deleteResult.size / 1024 / 1024).toFixed(2)} MB`);
         } else {
             console.log('✅ Очистка завершена: старых логов не найдено');
         }
-
+        
         return {
             rotated: rotateResult.rotated,
             deleted: deleteResult.deleted,
@@ -119,34 +146,48 @@ class LogCleaner {
             timestamp: new Date().toISOString()
         };
     }
-
+    
+    // Принудительная очистка
     forceCleanup() {
         this.lastClean = 0;
         return this.performCleanup();
     }
-
+    
+    // Получение информации о логах
     getLogsInfo() {
         try {
-            if (!fs.existsSync(this.logDir)) return { files: [], totalSize: 0, count: 0 };
-
+            if (!fs.existsSync(this.logDir)) {
+                return { files: [], totalSize: 0 };
+            }
+            
             const files = fs.readdirSync(this.logDir);
             const logsInfo = [];
             let totalSize = 0;
-
+            
             for (const file of files) {
                 if (!file.endsWith('.log')) continue;
-
+                
                 const filePath = path.join(this.logDir, file);
                 const size = this.getFileSize(filePath);
                 const age = this.getFileAge(filePath);
-
-                logsInfo.push({ name: file, size, age, path: filePath });
+                
+                logsInfo.push({
+                    name: file,
+                    size,
+                    age,
+                    path: filePath
+                });
+                
                 totalSize += size;
             }
-
-            return { files: logsInfo, totalSize, count: logsInfo.length };
-        } catch (error) {
-            console.error('❌ Ошибка получения информации о логах:', error.message);
+            
+            return {
+                files: logsInfo,
+                totalSize,
+                count: logsInfo.length
+            };
+        } catch (e) {
+            console.error('❌ Ошибка получения информации о логах:', e.message);
             return { files: [], totalSize: 0, count: 0 };
         }
     }
