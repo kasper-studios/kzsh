@@ -3,19 +3,19 @@ const path = require('path');
 const os = require('os-utils');
 
 // Логгер должен быть первым
-const logger = require('./services/logger');
+const logger = require('../services/logger');
 
-const temperatureReader = require('./core/temperature');
-const powerManager = require('./core/power');
-const batteryManager = require('./core/battery');
-const processManager = require('./core/processes');
-const autoControl = require('./core/auto-control');
-const statsManager = require('./services/stats');
-const historyManager = require('./services/history');
-const healthCheck = require('./services/health-check');
-const logCleaner = require('./services/log-cleaner');
+const temperatureReader = require('../core/temperature');
+const powerManager = require('../core/power');
+const batteryManager = require('../core/battery');
+const processManager = require('../core/processes');
+const autoControl = require('../core/auto-control');
+const statsManager = require('../services/stats');
+const historyManager = require('../services/history');
+const healthCheck = require('../services/health-check');
+const logCleaner = require('../services/log-cleaner');
 
-const apiRoutes = require('./api/routes');
+const apiRoutes = require('../api/routes');
 
 const {
     PORT,
@@ -24,7 +24,7 @@ const {
     HEALTH_CHECK_INTERVAL,
     LOG_CLEANUP_INTERVAL,
     TEMP_THRESHOLD
-} = require('./config/constants');
+} = require('../config/constants');
 
 const app = express();
 
@@ -35,7 +35,7 @@ app.get('/healthz', (req, res) => {
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', '..', 'public')));
 
 // API роуты
 app.use('/api', apiRoutes);

@@ -26,23 +26,28 @@ router.get('/status', async (req, res) => {
     try {
         const temperature = await temperatureReader.getCpuTemperature();
         const load = await getCpuLoad();
+        await batteryManager.updateStatus();
+        await processManager.updateProcesses();
 
-        // Обновляем статистику температуры
-        statsManager.updateTempStats(temperature);
+        // Обновляем статистику температуры только если датчик вернул валидное значение.
+        const validTemperature = Number.isFinite(temperature) && temperature > 0;
+        if (validTemperature) {
+            statsManager.updateTempStats(temperature);
+            historyManager.addToHistory(temperature, load, powerManager.getTurboState());
+        }
 
-        // Обновляем историю
-        historyManager.addToHistory(temperature, load, powerManager.getTurboState());
-
+        const stats = statsManager.getStats();
         res.json({
-            temperature: temperature,
+            temperature: validTemperature ? temperature : null,
             load: load.toFixed(1),
             turboEnabled: powerManager.getTurboState(),
             autoMode: autoControl.getAutoMode(),
             intelligentMode: autoControl.getIntelligentMode(),
             detectedProcesses: processManager.getDetectedProcesses(),
-            saveCount: statsManager.getStats().overheatingPrevented,
+            saveCount: stats.overheatingPrevented,
             battery: batteryManager.getStatus(),
-            stats: statsManager.getStats()
+            stats,
+            power: typeof powerManager.getBackendStatus === 'function' ? powerManager.getBackendStatus() : undefined
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -61,8 +66,7 @@ router.get('/history', (req, res) => {
 // Изменение периода истории
 router.post('/history/period', (req, res) => {
     const newPeriod = req.body.period;
-    const history = require('../services/history');
-    if (history.setPeriod(newPeriod)) {
+    if (historyManager.setPeriod(newPeriod)) {
         res.json({ success: true, period: newPeriod });
     } else {
         res.status(400).json({ error: 'Invalid period' });

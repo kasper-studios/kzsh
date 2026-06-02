@@ -49,6 +49,11 @@ class AutoControl {
     async performAutoControl(temp, load) {
         if (!this.autoMode) return;
 
+        if (!Number.isFinite(temp) || temp <= 0) {
+            console.log('⚠️ Автоконтроль пропущен: нет валидной температуры CPU');
+            return;
+        }
+
         const turboEnabled = powerManager.getTurboState();
 
         // КРИТИЧЕСКАЯ ЗАЩИТА — всегда срабатывает

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/daemon-manager.js",
     "check": "node src/daemon-check.js",
-    "web": "node src/web/server.js"
+    "web": "node src/web/server.js",
+    "termoregulator": "node src/web/server.js",
+    "termoregulator:daemon": "node src/demons/termoregulator.js"
   },
   "dependencies": {
     "express": "^4.22.2",

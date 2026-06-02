@@ -1,37 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+<meta charset="UTF-8">
 <style>
-:root { --purple: #b388eb; --black: #0a0a0a; --gray: #1a1a1a; }
+:root {
+  --purple: #c77dff;
+  --purple-dark: #7c4dff;
+  --black: #050507;
+  --gray: #15101f;
+  --green: #4ade80;
+  --red: #ff4d6d;
+  --muted: #b9a8cf;
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: var(--black); color: var(--purple); font-family: monospace; padding: 15px; min-width: 300px; }
-h2 { color: var(--purple); margin-bottom: 10px; }
-.status { margin: 5px 0; }
-.btn { background: var(--purple); color: var(--black); border: none; padding: 8px 15px; margin: 3px; cursor: pointer; }
+body {
+  background: linear-gradient(135deg, var(--black), #13071e);
+  color: var(--purple);
+  font-family: monospace;
+  padding: 15px;
+  min-width: 320px;
+}
+h2 { color: var(--purple); margin-bottom: 10px; text-shadow: 0 0 14px rgba(199,125,255,.45); }
+.card { background: var(--gray); border: 1px solid rgba(199,125,255,.3); border-radius: 10px; padding: 10px; margin: 8px 0; }
+.status { margin: 5px 0; color: #f6efff; }
+.muted { color: var(--muted); }
+.btn { background: var(--purple); color: var(--black); border: none; border-radius: 8px; padding: 8px 12px; margin: 3px; cursor: pointer; font-weight: 700; }
+.btn.off { background: var(--red); color: white; }
+.btn.auto { background: var(--purple-dark); color: white; }
+.ok { color: var(--green); }
+.bad { color: var(--red); }
 </style>
 </head>
 <body>
-<h2>🌡️ Termoregulator</h2>
-<div id="temp" class="status">Temp: —°C</div>
-<div id="load" class="status">Load: —%</div>
-<div id="profile" class="status">Profile: —</div>
+<h2>🌡️ KZSH Termoregulator</h2>
+<div class="card">
+  <div id="temp" class="status">Temp: —°C</div>
+  <div id="load" class="status">Load: —%</div>
+  <div id="turbo" class="status">Turbo: —</div>
+  <div id="modes" class="status muted">Auto: — • Smart: —</div>
+  <div id="battery" class="status muted">Battery: —</div>
+  <div id="processes" class="status muted">Processes: —</div>
+</div>
 <div style="margin-top:10px">
-<button class="btn" onclick="setProfile(true)">🔥 Performance</button>
-<button class="btn" onclick="setProfile(false)">❄️ Power Saver</button>
+  <button class="btn" onclick="setTurbo(true)">🔥 Performance</button>
+  <button class="btn off" onclick="setTurbo(false)">❄️ Power Saver</button>
+  <button class="btn auto" onclick="toggleAuto()">🤖 Toggle Auto</button>
 </div>
 <script>
+let autoMode = true;
 async function update() {
-  const res = await fetch('http://localhost:9110/api/status');
-  const data = await res.json();
-  document.getElementById('temp').textContent = `Temp: ${data.temperature}°C`;
-  document.getElementById('load').textContent = `Load: ${data.load}%`;
-  document.getElementById('profile').textContent = `Profile: ${data.profile}`;
+  try {
+    const res = await fetch('http://localhost:9110/api/status');
+    const data = await res.json();
+    const temp = Number(data.temperature);
+    document.getElementById('temp').textContent = `Temp: ${Number.isFinite(temp) ? temp.toFixed(1) : '—'}°C`;
+    document.getElementById('load').textContent = `Load: ${data.load ?? '—'}%`;
+    document.getElementById('turbo').innerHTML = `Turbo: <span class="${data.turboEnabled ? 'ok' : 'bad'}">${data.turboEnabled ? 'ON' : 'OFF'}</span>`;
+    autoMode = Boolean(data.autoMode);
+    document.getElementById('modes').textContent = `Auto: ${data.autoMode ? 'ON' : 'OFF'} • Smart: ${data.intelligentMode ? 'ON' : 'OFF'}`;
+    if (data.battery) {
+      const icon = data.battery.hasBattery === false ? '🖥️' : (data.battery.isCharging ? '🔌' : '🔋');
+      document.getElementById('battery').textContent = `${icon} ${data.battery.level}% (${data.battery.isCharging ? 'AC/charging' : 'battery'})`;
+    }
+    document.getElementById('processes').textContent = data.detectedProcesses?.length ? `🎮 ${data.detectedProcesses.join(', ')}` : '💤 Processes: none';
+  } catch (e) {
+    document.getElementById('temp').textContent = 'API offline';
+  }
 }
-async function setProfile(enabled) {
+async function setTurbo(enabled) {
+  await fetch('http://localhost:9110/api/auto', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false })
+  });
   await fetch('http://localhost:9110/api/turbo', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled })
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled })
+  });
+  update();
+}
+async function toggleAuto() {
+  await fetch('http://localhost:9110/api/auto', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !autoMode })
   });
   update();
 }
