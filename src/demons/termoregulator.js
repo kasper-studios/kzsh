@@ -1,4 +1,4 @@
-const os = require('os-utils');
+const os = require('os');
 
 require('../services/logger');
 
@@ -16,9 +16,12 @@ const {
     TEMP_THRESHOLD
 } = require('../config/constants');
 
-const getCpuLoad = () => new Promise((resolve) => {
-    os.cpuUsage((value) => resolve(value * 100));
-});
+const getCpuLoad = () => {
+    const avgLoad = os.loadavg()[0];
+    const numCpus = os.cpus().length;
+    const cpuUsage = (avgLoad / numCpus) * 100;
+    return Promise.resolve(Math.min(cpuUsage, 100));
+};
 
 async function safeRun(label, fn) {
     try {
