@@ -31,6 +31,32 @@ class LogCleaner {
     async performCleanup() {
         return { skipped: true, reason: 'not_implemented_yet' };
     }
+
+    async forceCleanup() {
+        try {
+            if (!fs.existsSync(this.logDir)) {
+                return { success: true, deleted: 0 };
+            }
+            const files = fs.readdirSync(this.logDir).filter(f => f.endsWith('.log'));
+            let deleted = 0;
+            const now = Date.now();
+
+            for (const file of files) {
+                const filePath = path.join(this.logDir, file);
+                const stat = fs.statSync(filePath);
+                const age = now - stat.mtimeMs;
+
+                if (age > this.maxLogAge || stat.size > this.maxLogSize) {
+                    fs.unlinkSync(filePath);
+                    deleted++;
+                }
+            }
+
+            return { success: true, deleted };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    }
 }
 
 module.exports = new LogCleaner();

@@ -1,82 +1,34 @@
-const { exec } = require('child_process');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
 
 class TemperatureReader {
     constructor() {
         this.lastTemp = 0;
-        this.methodUsed = 'none';
-    }
-
-    getTempFromSysfs() {
-        try {
-            const zones = fs.readdirSync('/sys/class/thermal')
-                .filter(f => f.startsWith('thermal_zone'));
-            
-            for (const zone of zones) {
-                try {
-                    const tempPath = path.join('/sys/class/thermal', zone, 'temp');
-                    const temp = parseInt(fs.readFileSync(tempPath, 'utf8').trim());
-                    if (!isNaN(temp) && temp > 0) {
-                        // sysfs returns temperature in millidegree Celsius
-                        return temp / 1000;
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
-            return null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    getTempFromSensors() {
-        return new Promise((resolve) => {
-            exec('sensors 2>/dev/null | grep -E "(Tctl|Tdie|Package id|Core|Tccd)" | head -1', (err, stdout) => {
-                if (err || !stdout.trim()) {
-                    resolve(null);
-                    return;
-                }
-                const match = stdout.match(/([\d,.]+)\s*°?[Cc]/);
-                if (match) {
-                    const temp = parseFloat(match[1].replace(',', '.'));
-                    resolve(isNaN(temp) ? null : temp);
-                } else {
-                    resolve(null);
-                }
-            });
-        });
     }
 
     async getCpuTemperature() {
-        // Метод 1: Через /sys/class/thermal (нативно, быстро)
-        let temp = this.getTempFromSysfs();
-        if (temp !== null && temp > 0) {
-            if (this.methodUsed !== 'sysfs') {
-                console.log(`✓ Температура через sysfs: ${temp}°C`);
-                this.methodUsed = 'sysfs';
+        try {
+            // Ищем все файлы датчиков температуры
+            const hwmonPath = '/sys/class/hwmon';
+            const hwmonDirs = await fs.readdir(hwmonPath);
+            
+            for (const dir of hwmonDirs) {
+                const files = await fs.readdir(path.join(hwmonPath, dir));
+                for (const file of files) {
+                    if (file.startsWith('temp') && file.endsWith('_input')) {
+                        const content = await fs.readFile(path.join(hwmonPath, dir, file), 'utf8');
+                        const temp = parseInt(content.trim()) / 1000;
+                        if (!isNaN(temp) && temp > 0 && temp < 120) {
+                            this.lastTemp = temp;
+                            return temp;
+                        }
+                    }
+                }
             }
-            this.lastTemp = temp;
-            return temp;
+        } catch (e) {
+            console.error('Ошибка чтения температуры:', e);
         }
-
-        // Метод 2: Через sensors (нужен пакет lm_sensors)
-        temp = await this.getTempFromSensors();
-        if (temp !== null && temp > 0) {
-            if (this.methodUsed !== 'sensors') {
-                console.log(`✓ Температура через sensors: ${temp}°C`);
-                this.methodUsed = 'sensors';
-            }
-            this.lastTemp = temp;
-            return temp;
-        }
-
-        if (this.methodUsed !== 'none') {
-            console.log('⚠ Не удалось получить температуру');
-            this.methodUsed = 'none';
-        }
-
         return this.lastTemp;
     }
 }

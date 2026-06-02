@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KZSH Демони</title>
+    <title>KZSH Терморегулятор</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --purple: #b388eb;
@@ -11,106 +12,74 @@
             --purple-light: #e0b6ff;
             --black: #0a0a0a;
             --gray: #1a1a1a;
+            --green: #4CAF50;
+            --red: #f44336;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: var(--black);
-            color: var(--purple-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
             min-height: 100vh;
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { color: var(--purple); text-align: center; margin: 20px 0; font-size: 2em; }
-        .status-card {
-            background: var(--gray);
-            border: 1px solid var(--purple);
-            border-radius: 10px;
-            padding: 25px;
-            margin: 15px 0;
-        }
-        .temp-display { font-size: 3em; color: var(--purple); text-align: center; }
-        .temp-unit { font-size: 0.5em; color: var(--purple-light); }
-        .controls {
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 15px;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #fff;
         }
-        button {
-            background: var(--purple);
-            color: var(--black);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
+        .container {
+            background: var(--black);
+            border: 1px solid var(--purple);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            max-width: 900px;
+            width: 100%;
         }
-        button:hover { background: var(--purple-dark); }
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            margin-left: 10px;
+        h1 {
+            text-align: center;
+            color: var(--purple);
+            margin-bottom: 30px;
+            font-size: 28px;
         }
-        .badge.on { background: var(--purple); color: var(--black); }
-        .badge.off { background: #333; color: #777; }
-        .footer { text-align: center; margin-top: 30px; color: #555; font-size: 0.9em; }
+        .temp-display { text-align: center; margin: 30px 0; }
+        .temp-value { font-size: 72px; font-weight: bold; color: var(--purple); }
+        .temp-label { font-size: 18px; color: var(--purple-light); margin-top: 10px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+        .stat-card { background: var(--gray); border: 1px solid var(--purple); padding: 15px; border-radius: 10px; text-align: center; }
+        .stat-label { font-size: 12px; color: var(--purple-light); margin-bottom: 5px; }
+        .stat-value { font-size: 20px; font-weight: bold; color: var(--purple); }
+        
+        .controls { display: flex; flex-direction: column; gap: 15px; }
+        .control-row { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--gray); border-radius: 10px; }
+        
+        button { padding: 10px 25px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-turbo { background: var(--green); color: white; }
+        .btn-turbo.off { background: var(--red); }
+        
+        .status { text-align: center; margin-top: 20px; padding: 10px; border-radius: 8px; font-size: 14px; }
+        .status.warning { background: rgba(244, 67, 54, 0.2); color: var(--red); border: 1px solid var(--red); }
+        .status.ok { background: rgba(76, 175, 80, 0.2); color: var(--green); border: 1px solid var(--green); }
+        
+        .footer { text-align: center; padding: 20px; opacity: 0.8; font-size: 12px; margin-top: 30px; border-top: 1px solid var(--purple); color: var(--purple-light); }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌡️ ТРМРГЛТР</h1>
-        
-        <div class="status-card">
-            <div class="temp-display" id="temp">—<span class="temp-unit">°C</span></div>
-            <p style="text-align:center; margin-top:10px;">Нагрузка: <span id="load">—</span>% | 
-               Профиль: <span id="profile">—</span></p>
+        <h1>🌡️ KZSH Терморегулятор</h1>
+        <div class="temp-display">
+            <div class="temp-value" id="temp">--</div>
+            <div class="temp-label">°C</div>
         </div>
-
-        <div class="status-card">
-            <h3>Управление</h3>
-            <div class="controls">
-                <button onclick="setProfile('performance')">Performance</button>
-                <button onclick="setProfile('power-saver')">Power Saver</button>
-                <button onclick="setProfile('balanced')">Balanced</button>
-            </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Нагрузка</div><div class="stat-value" id="load">--</div></div>
+            <div class="stat-card"><div class="stat-label">Макс. темп.</div><div class="stat-value" id="maxTemp">--</div></div>
+            <div class="stat-card"><div class="stat-label">Средняя темп.</div><div class="stat-value" id="avgTemp">--</div></div>
         </div>
-
-        <div class="status-card">
-            <h3>Статистика</h3>
-            <p>Спасено от перегрева: <span id="saves">0</span> раз</p>
-            <p>Средняя температура: <span id="avg-temp">—</span>°C</p>
-        </div>
-
-        <div class="footer">KZSH Демони v1.0 | серенево-чёрный</div>
+        <div class="status ok" id="status">Система работает нормально</div>
+        <footer class="footer">
+            <p>🔧 KZSH by @kasperenok</p>
+        </footer>
     </div>
-
-    <script>
-        async function updateStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                document.getElementById('temp').innerHTML = `${Math.round(data.temperature)}<span class="temp-unit">°C</span>`;
-                document.getElementById('load').textContent = data.load;
-                document.getElementById('profile').textContent = data.turboEnabled ? 'performance' : 'power-saver';
-            } catch (e) {
-                document.getElementById('temp').innerHTML = `—<span class="temp-unit">°C</span>`;
-            }
-        }
-
-        async function setProfile(profile) {
-            await fetch('/api/turbo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: profile === 'performance' })
-            });
-            updateStatus();
-        }
-
-        setInterval(updateStatus, 2000);
-        updateStatus();
-    </script>
 </body>
 </html>

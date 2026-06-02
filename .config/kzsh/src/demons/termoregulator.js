@@ -17,7 +17,18 @@ const {
 const app = express();
 app.use(express.json());
 
-const publicPath = path.resolve(__dirname, '..', '..', 'public');
+// Поиск public директории - ищем public рядом с .config/kzsh или в корне репо
+let publicPath;
+const configDir = path.dirname(path.dirname(__dirname)); // .config/kzsh
+const repoDir = path.dirname(configDir); // .kzsh-repo
+
+if (fs.existsSync(path.join(repoDir, 'public'))) {
+    publicPath = path.join(repoDir, 'public');
+} else if (fs.existsSync(path.join(configDir, 'public'))) {
+    publicPath = path.join(configDir, 'public');
+} else {
+    publicPath = path.join(configDir, 'src', '..', '..', 'public');
+}
 app.use(express.static(publicPath));
 
 const logDir = path.join(__dirname, '..', '.logs');
@@ -65,11 +76,21 @@ function canChange() {
 }
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(publicPath, 'index.html'));
+    const indexFile = path.join(publicPath, 'index.html');
+    if (fs.existsSync(indexFile)) {
+        res.sendFile(indexFile);
+    } else {
+        res.send(`<h1>Teremoregulator running</h1><p>publicPath: ${publicPath}</p><pre>${JSON.stringify({temp: getCpuTemperature(), load: getCpuLoad()}, null, 2)}</pre>`);
+    }
 });
 
 app.get('/widget', (req, res) => {
-    res.sendFile(path.join(publicPath, 'widget.html'));
+    const widgetFile = path.join(publicPath, 'widget.html');
+    if (fs.existsSync(widgetFile)) {
+        res.sendFile(widgetFile);
+    } else {
+        res.json({ error: 'widget.html not found', publicPath, temp: getCpuTemperature() });
+    }
 });
 
 app.get('/api/status', async (req, res) => {
@@ -105,4 +126,5 @@ setInterval(async () => {
 
 app.listen(PORT, () => {
     console.log(`\n🌡️ темп регулятор запущен на http://localhost:${PORT}`);
+    console.log(`📁 publicPath: ${publicPath}`);
 });

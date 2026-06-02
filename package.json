@@ -9,6 +9,7 @@
     "web": "node src/web/server.js"
   },
   "dependencies": {
-    "express": "^4.22.2"
+    "express": "^4.22.2",
+    "os-utils": "^0.3.0"
   }
 }
