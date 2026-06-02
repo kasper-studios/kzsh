@@ -41,11 +41,28 @@ let lastBoostChange = Date.now();
 let turboEnabled = false;
 
 function getCpuLoad() {
-    const avgLoad = os.loadavg()[0];
-    const numCpus = os.cpus().length;
-    const cpuUsage = (avgLoad / numCpus) * 100;
-    return Math.min(Math.round(cpuUsage), 100);
+    try {
+        const cpus = os.cpus();
+        let totalIdle = 0;
+        let totalTick = 0;
+        
+        cpus.forEach(cpu => {
+            for (const type in cpu.times) {
+                totalTick += cpu.times[type];
+            }
+            totalIdle += cpu.times.idle;
+        });
+        
+        const idle = totalIdle / cpus.length;
+        const total = totalTick / cpus.length;
+        const usage = 100 - ~~(100 * idle / total);
+        
+        return Math.max(0, Math.min(usage, 100));
+    } catch (e) {
+        return 0;
+    }
 }
+
 
 function getCpuTemperature() {
     try {
