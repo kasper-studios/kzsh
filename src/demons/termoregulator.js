@@ -14,6 +14,8 @@ const {
     COOLDOWN
 } = require('../config/constants');
 
+const history = require('../services/history');
+
 const app = express();
 app.use(express.json());
 
@@ -39,6 +41,9 @@ if (!fs.existsSync(logDir)) {
 let autoMode = false;
 let lastBoostChange = Date.now();
 let turboEnabled = false;
+let minTemp = null;
+let maxTemp = null;
+let sessionStartTime = Date.now();
 
 let lastCpuStats = null;
 
@@ -110,6 +115,7 @@ function getBatteryInfo() {
                     const status = fs.readFileSync(statusPath, 'utf8').trim();
                     
                     return {
+                        level: capacity,
                         capacity,
                         status: status.toLowerCase(),
                         isCharging: status.includes('Charging')
@@ -163,12 +169,44 @@ app.get('/api/status', async (req, res) => {
     const load = getCpuLoad();
     const battery = getBatteryInfo();
     res.json({ 
-        temperature: temp, 
+        temperature: temp,
+        minTemp,
+        maxTemp,
         load, 
         turboEnabled, 
         autoMode, 
         profile: turboEnabled ? 'performance' : 'power-saver',
         battery
+    });
+});
+
+app.get('/api/history', (req, res) => {
+    res.json(history.getHistory());
+});
+
+app.post('/api/history/period', (req, res) => {
+    const { period } = req.body;
+    if (history.setPeriod(period)) {
+        res.json({ success: true, period });
+    } else {
+        res.status(400).json({ error: 'Invalid period' });
+    }
+});
+
+app.get('/api/stats', (req, res) => {
+    const uptime = Math.floor((Date.now() - sessionStartTime) / 1000);
+    res.json({
+        minTemp,
+        maxTemp,
+        maxTemperature: maxTemp,
+        avgTemperature: maxTemp || 0,
+        totalSessions: 1,
+        overheatingPrevented: 0,
+        totalRuntime: uptime,
+        longestSession: uptime,
+        currentSessionTime: uptime,
+        owner: 'KZSH',
+        sessionUptime: uptime
     });
 });
 
@@ -184,10 +222,25 @@ app.post('/api/auto', (req, res) => {
 });
 
 setInterval(async () => {
-    if (!autoMode) return;
     const temp = getCpuTemperature();
     const load = getCpuLoad();
-    if (!temp || !canChange()) return;
+    
+    // Обновляем историю
+    if (temp !== null) {
+        history.addToHistory(temp, load, turboEnabled);
+        
+        // Обновляем min/max температуры
+        if (minTemp === null || temp < minTemp) {
+            minTemp = temp;
+        }
+        if (maxTemp === null || temp > maxTemp) {
+            maxTemp = temp;
+        }
+    }
+    
+    // Авто-режим
+    if (!autoMode || !temp || !canChange()) return;
+    
     if (temp > TEMP_HIGH && turboEnabled) {
         console.log(`🔥 ${temp}°C - выключаю буст`);
         await setPowerMode(false);
