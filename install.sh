@@ -68,6 +68,19 @@ mkdir -p "$HOME/.config"
 ln -sf "$REPO_DIR/.config/kzsh" "$INSTALL_DIR"
 [[ ! -L "$INSTALL_DIR" ]] && { echo "ERROR: Symlink not created"; exit 1; }
 
+# Copy public directory to .config for web daemons
+print_color "Setting up web daemon resources..."
+[[ -d "$REPO_DIR/public" ]] && cp -rf "$REPO_DIR/public" "$REPO_DIR/.config/"
+
+# Install Node.js dependencies if package.json exists
+if [[ -f "$REPO_DIR/package.json" ]]; then
+  print_color "Installing Node.js dependencies..."
+  cd "$REPO_DIR"
+  if command -v npm >/dev/null 2>&1; then
+    npm install --silent 2>/dev/null || true
+  fi
+fi
+
 # Copy .zshrc if needed
 [[ -f "$REPO_DIR/.zshrc" ]] && [[ ! -f "$HOME/.zshrc" ]] && cp "$REPO_DIR/.zshrc" "$HOME/.zshrc"
 

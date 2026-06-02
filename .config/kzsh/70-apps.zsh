@@ -109,10 +109,14 @@ kdaemon() {
       if [[ -f "$src" ]]; then
         mkdir -p "$HOME/.config/systemd/user"
         cp "$src" "$dst"
+        
+        # Copy public directory to .config for web daemons
+        [[ -d "$repo_dir/public" ]] && cp -rf "$repo_dir/public" "$repo_dir/.config/"
+        
         # Install dependencies for Node.js daemons
         if [[ -f "$repo_dir/package.json" ]]; then
           print -P "%F{yellow}📦 Installing dependencies...%f"
-          cd "$repo_dir" && npm install --silent
+          cd "$repo_dir" && npm install --silent 2>/dev/null || true
           if [[ $? -eq 0 ]]; then
             print -P "✅ Dependencies installed"
           fi
