@@ -7,28 +7,40 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --purple: #c77dff;
+            --purple-dark: #7c4dff;
+            --black: #030308;
+            --gray: #0b0816;
+            --green: #6dffaa;
+            --red: #ff4d9d;
+            --muted: #b9a8cf;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--black), #13091b);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            color: var(--purple);
         }
         .container {
-            background: white;
+            background: var(--gray);
+            border: 1px solid rgba(199, 125, 255, 0.3);
             border-radius: 20px;
             padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             max-width: 900px;
             width: 100%;
         }
         h1 {
             text-align: center;
-            color: #333;
+            color: var(--purple);
             margin-bottom: 30px;
             font-size: 28px;
+            text-shadow: 0 0 14px rgba(199,125,255,0.4);
         }
         .temp-display {
             text-align: center;
@@ -37,17 +49,17 @@
         .temp-value {
             font-size: 72px;
             font-weight: bold;
-            color: #667eea;
+            color: var(--red);
         }
         .temp-label {
             font-size: 18px;
-            color: #666;
+            color: var(--muted);
             margin-top: 10px;
         }
         .load-display {
             text-align: center;
             font-size: 24px;
-            color: #666;
+            color: var(--muted);
             margin-bottom: 30px;
         }
         .stats-grid {
@@ -57,20 +69,21 @@
             margin: 20px 0;
         }
         .stat-card {
-            background: #f8f9fa;
+            background: var(--black);
             padding: 15px;
             border-radius: 10px;
+            border: 1px solid rgba(199, 125, 255, 0.3);
             text-align: center;
         }
         .stat-label {
             font-size: 12px;
-            color: #666;
+            color: var(--muted);
             margin-bottom: 5px;
         }
         .stat-value {
             font-size: 20px;
             font-weight: bold;
-            color: #667eea;
+            color: var(--purple);
         }
         .controls {
             display: flex;
@@ -82,13 +95,14 @@
             justify-content: space-between;
             align-items: center;
             padding: 15px;
-            background: #f5f5f5;
+            background: var(--black);
             border-radius: 10px;
+            border: 1px solid rgba(199, 125, 255, 0.2);
         }
         .control-label {
             font-size: 16px;
             font-weight: 500;
-            color: #333;
+            color: var(--purple);
         }
         button {
             padding: 10px 25px;
@@ -100,27 +114,29 @@
             transition: all 0.3s;
         }
         .btn-turbo {
-            background: #4CAF50;
-            color: white;
+            background: var(--purple);
+            color: var(--black);
         }
         .btn-turbo.off {
-            background: #f44336;
+            background: var(--red);
+            color: white;
         }
         .btn-turbo:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
         }
         .toggle {
             position: relative;
             width: 60px;
             height: 30px;
-            background: #ccc;
+            background: #1a1425;
             border-radius: 15px;
             cursor: pointer;
             transition: background 0.3s;
+            border: 1px solid rgba(199, 125, 255, 0.3);
         }
         .toggle.active {
-            background: #4CAF50;
+            background: var(--purple-dark);
         }
         .toggle::after {
             content: '';
@@ -142,20 +158,24 @@
             padding: 10px;
             border-radius: 8px;
             font-size: 14px;
+            color: var(--purple);
+            background: var(--black);
+            border: 1px solid rgba(199,125,255,0.3);
         }
         .status.warning {
-            background: #fff3cd;
-            color: #856404;
+            border-color: var(--red);
+            color: var(--red);
         }
         .status.ok {
-            background: #d4edda;
-            color: #155724;
+            border-color: var(--green);
+            color: var(--green);
         }
         .chart-container {
             margin: 30px 0;
             padding: 20px;
-            background: #f8f9fa;
+            background: var(--black);
             border-radius: 10px;
+            border: 1px solid rgba(199, 125, 255, 0.3);
         }
         .period-selector {
             display: flex;
@@ -165,9 +185,9 @@
         }
         .period-btn {
             padding: 8px 16px;
-            border: 2px solid #667eea;
-            background: white;
-            color: #667eea;
+            border: 2px solid var(--purple);
+            background: transparent;
+            color: var(--purple);
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
@@ -175,42 +195,61 @@
             transition: all 0.3s;
         }
         .period-btn.active {
-            background: #667eea;
-            color: white;
+            background: var(--purple);
+            color: var(--black);
         }
         .period-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
         }
         .processes {
             margin: 15px 0;
             padding: 10px;
-            background: #e3f2fd;
+            background: var(--black);
+            border: 1px solid rgba(199,125,255,0.3);
             border-radius: 8px;
             font-size: 12px;
-            color: #1565c0;
+            color: var(--muted);
             min-height: 20px;
         }
         .mode-badge {
             display: inline-block;
             padding: 4px 12px;
-            background: #667eea;
+            background: var(--purple-dark);
             color: white;
             border-radius: 12px;
             font-size: 12px;
             margin-left: 10px;
+        }
+        .chart-container h3 {
+            text-align: center;
+            color: var(--purple);
+            margin-bottom: 15px;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.6;
+            font-size: 12px;
+            margin-top: 30px;
+            border-top: 1px solid rgba(199,125,255,0.2);
+            color: var(--muted);
+        }
+        footer a {
+            color: var(--purple);
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🌡️ Терморегулятор CPU</h1>
-        
+
         <div class="temp-display">
             <div class="temp-value" id="temp">--</div>
             <div class="temp-label">°C</div>
         </div>
-        
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Нагрузка</div>
@@ -225,16 +264,16 @@
                 <div class="stat-value" id="avgTemp">--</div>
             </div>
         </div>
-        
-        <div class="stat-card" style="margin: 15px 0; background: #f0f4ff;">
+
+        <div class="stat-card" style="margin: 15px 0; background: var(--black);">
             <div class="stat-label">Питание</div>
             <div class="stat-value" id="battery" style="font-size: 16px;">🔌 Проверка...</div>
         </div>
-        
+
         <div class="processes" id="processes">
             Процессы не обнаружены
         </div>
-        
+
         <div class="controls">
             <div class="control-row">
                 <span class="control-label">Турбобуст</span>
@@ -242,7 +281,7 @@
                     Выключить
                 </button>
             </div>
-            
+
             <div class="control-row">
                 <span class="control-label">
                     Автоматический режим
@@ -250,13 +289,13 @@
                 </span>
                 <div class="toggle active" id="autoToggle" onclick="toggleAuto()"></div>
             </div>
-            
+
             <div class="control-row">
                 <span class="control-label">Интеллектуальный режим</span>
                 <div class="toggle active" id="intelligentToggle" onclick="toggleIntelligent()"></div>
             </div>
         </div>
-        
+
         <div class="chart-container">
             <div class="period-selector">
                 <button class="period-btn active" onclick="changePeriod('2min')">2 мин</button>
@@ -266,13 +305,13 @@
             </div>
             <canvas id="tempChart"></canvas>
         </div>
-        
+
         <div class="status ok" id="status">
             Система работает нормально
         </div>
-        
+
         <div class="chart-container" style="margin-top: 20px;">
-            <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">📊 Статистика за время владения</h3>
+            <h3>📊 Статистика за время владения</h3>
             <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
                 <div class="stat-card">
                     <div class="stat-label">Всего сессий</div>
@@ -280,7 +319,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Спасено от перегрева</div>
-                    <div class="stat-value" id="statSaved" style="color: #4CAF50;">--</div>
+                    <div class="stat-value" id="statSaved" style="color: var(--green);">--</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Средняя температура</div>
@@ -288,7 +327,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Макс. температура</div>
-                    <div class="stat-value" id="statMaxTemp" style="color: #f44336;">--</div>
+                    <div class="stat-value" id="statMaxTemp" style="color: var(--red);">--</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Общее время работы</div>
@@ -299,26 +338,25 @@
                     <div class="stat-value" id="statLongestSession">--</div>
                 </div>
             </div>
-            <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
+            <div style="text-align: center; margin-top: 15px; font-size: 12px; color: var(--muted);">
                 <span id="statOwner">@kasperenok</span> • Текущая сессия: <span id="statCurrentSession">0м</span>
             </div>
         </div>
-        
-        <footer style="text-align: center; padding: 20px; opacity: 0.6; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee;">
-            <p>🔧 Сделано <a href="https://github.com/kasper-studios" target="_blank" style="color: #667eea; text-decoration: none;">@kasperenok</a> в 2026</p>
+
+        <footer>
+            <p>🔧 Сделано <a href="https://github.com/kasper-studios" target="_blank">@kasperenok</a> в 2026</p>
             <p style="margin-top: 10px;">Если ты читаешь это — значит, этот ноут теперь твой. Береги его, он видел много говнокода 💀</p>
-            <p style="font-size: 10px; margin-top: 10px; color: #999;">P.S. Эта прога спасла проц от перегрева <span id="saveCount">0</span> раз. Не удаляй её, она умнее родных утилит ASUS.</p>
+            <p style="font-size: 10px; margin-top: 10px; color: var(--muted);">P.S. Эта прога спасла проц от перегрева <span id="saveCount">0</span> раз. Не удаляй её, она умнее родных утилит ASUS.</p>
         </footer>
     </div>
 
     <script>
-        let turboEnabled = true; // Считаем что буст включен по умолчанию
-        let autoMode = true; // Автоматический режим включен по умолчанию
-        let intelligentMode = true; // Умный режим включен по умолчанию
+        let turboEnabled = true;
+        let autoMode = true;
+        let intelligentMode = true;
         let chart = null;
         let currentPeriod = '2min';
 
-        // Инициализация графика
         function initChart() {
             const ctx = document.getElementById('tempChart').getContext('2d');
             chart = new Chart(ctx, {
@@ -328,15 +366,15 @@
                     datasets: [{
                         label: 'Температура (°C)',
                         data: [],
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderColor: '#c77dff',
+                        backgroundColor: 'rgba(199,125,255,0.15)',
                         tension: 0.4,
                         yAxisID: 'y'
                     }, {
                         label: 'Нагрузка (%)',
                         data: [],
-                        borderColor: '#4CAF50',
-                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        borderColor: '#6dffaa',
+                        backgroundColor: 'rgba(109,255,170,0.15)',
                         tension: 0.4,
                         yAxisID: 'y1'
                     }]
@@ -355,7 +393,9 @@
                             title: {
                                 display: true,
                                 text: 'Температура (°C)'
-                            }
+                            },
+                            ticks: { color: '#b9a8cf' },
+                            grid: { color: 'rgba(199,125,255,0.15)' }
                         },
                         y1: {
                             type: 'linear',
@@ -365,10 +405,18 @@
                                 display: true,
                                 text: 'Нагрузка (%)'
                             },
+                            ticks: { color: '#b9a8cf' },
                             grid: {
                                 drawOnChartArea: false,
                             }
+                        },
+                        x: {
+                            ticks: { color: '#b9a8cf' },
+                            grid: { color: 'rgba(199,125,255,0.15)' }
                         }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#c77dff' } }
                     }
                 }
             });
@@ -376,22 +424,19 @@
 
         async function changePeriod(period) {
             currentPeriod = period;
-            
-            // Обновляем активную кнопку
+
             document.querySelectorAll('.period-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
-            
-            // Отправляем запрос на сервер
+
             try {
                 await fetch('/api/history/period', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ period })
                 });
-                
-                // Очищаем график
+
                 chart.data.labels = [];
                 chart.data.datasets[0].data = [];
                 chart.data.datasets[1].data = [];
@@ -405,7 +450,7 @@
             try {
                 const res = await fetch('/api/history');
                 const data = await res.json();
-                
+
                 chart.data.labels = data.timestamps;
                 chart.data.datasets[0].data = data.temps;
                 chart.data.datasets[1].data = data.loads;
@@ -419,41 +464,34 @@
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
-                
-                document.getElementById('temp').textContent = data.temperature.toFixed(1);
-                document.getElementById('load').textContent = data.load + '%';
-                
-                // Обновляем статистику
+
+                document.getElementById('temp').textContent = typeof data.temperature === 'number' ? data.temperature.toFixed(1) : '--';
+                document.getElementById('load').textContent = (data.load ?? '--') + '%';
+
                 const historyRes = await fetch('/api/history');
                 const history = await historyRes.json();
-                
-                if (history.temps.length > 0) {
+
+                if (history.temps && history.temps.length > 0) {
                     const maxTemp = Math.max(...history.temps);
                     const avgTemp = history.temps.reduce((a, b) => a + b, 0) / history.temps.length;
                     document.getElementById('maxTemp').textContent = maxTemp.toFixed(1) + '°C';
                     document.getElementById('avgTemp').textContent = avgTemp.toFixed(1) + '°C';
                 }
-                
-                // Обновляем счётчик спасений
-                if (data.saveCount !== undefined) {
+
+                if (typeof data.saveCount !== 'undefined') {
                     document.getElementById('saveCount').textContent = data.saveCount;
                 }
-                
-                // Обновляем статус батареи
+
                 if (data.battery) {
                     const batteryDiv = document.getElementById('battery');
-                    const icon = data.battery.isCharging ? '🔌' : '🔋';
-                    const status = data.battery.isCharging ? 'Зарядка' : 'Батарея';
-                    batteryDiv.textContent = `${icon} ${status}: ${data.battery.level}%`;
-                    
-                    if (!data.battery.isCharging || data.battery.level < 50) {
-                        batteryDiv.style.color = '#f44336';
-                    } else {
-                        batteryDiv.style.color = '#4CAF50';
-                    }
+                    const b = data.battery;
+                    const icon = !b.hasBattery ? '🖥️' : (b.isCharging ? '🔌' : '🔋');
+                    const status = !b.hasBattery ? 'Нет батареи' : (b.isCharging ? 'Зарядка' : 'Батарея');
+                    batteryDiv.textContent = `${icon} ${status}: ${b.level}%`;
+
+                    batteryDiv.style.color = b.hasBattery && (!b.isCharging || b.level < 50) ? 'var(--red)' : 'var(--green)';
                 }
-                
-                // Обновляем общую статистику
+
                 if (data.stats) {
                     const formatTime = (seconds) => {
                         const hours = Math.floor(seconds / 3600);
@@ -461,35 +499,35 @@
                         if (hours > 0) return `${hours}ч ${minutes}м`;
                         return `${minutes}м`;
                     };
-                    
+
                     document.getElementById('statSessions').textContent = data.stats.totalSessions;
                     document.getElementById('statSaved').textContent = data.stats.overheatingPrevented + ' раз';
-                    document.getElementById('statAvgTemp').textContent = data.stats.avgTemperature.toFixed(1) + '°C';
-                    document.getElementById('statMaxTemp').textContent = data.stats.maxTemperature.toFixed(1) + '°C';
-                    document.getElementById('statTotalTime').textContent = formatTime(data.stats.totalRuntime);
-                    document.getElementById('statLongestSession').textContent = formatTime(data.stats.longestSession);
-                    document.getElementById('statCurrentSession').textContent = formatTime(data.stats.currentSessionTime);
-                    document.getElementById('statOwner').textContent = data.stats.owner;
+                    document.getElementById('statAvgTemp').textContent = (data.stats.avgTemperature || 0).toFixed(1) + '°C';
+                    document.getElementById('statMaxTemp').textContent = (data.stats.maxTemperature || 0).toFixed(1) + '°C';
+                    document.getElementById('statTotalTime').textContent = formatTime(data.stats.totalRuntime || 0);
+                    document.getElementById('statLongestSession').textContent = formatTime(data.stats.longestSession || 0);
+                    document.getElementById('statCurrentSession').textContent = formatTime(data.stats.currentSessionTime || 0);
+                    document.getElementById('statOwner').textContent = data.stats.owner || '@kasperenok';
                 }
-                
+
                 turboEnabled = data.turboEnabled;
                 autoMode = data.autoMode;
                 intelligentMode = data.intelligentMode;
-                
-                // Обновляем процессы
+
                 const processesDiv = document.getElementById('processes');
-                if (data.detectedProcesses && data.detectedProcesses.length > 0) {
-                    processesDiv.textContent = '🎮 Обнаружены: ' + data.detectedProcesses.join(', ');
-                    processesDiv.style.background = '#fff3cd';
-                    processesDiv.style.color = '#856404';
+                const procs = data.detectedProcesses || [];
+                if (procs.length > 0) {
+                    processesDiv.textContent = '🎮 Обнаружены: ' + procs.join(', ');
+                    processesDiv.style.background = 'var(--black)';
+                    processesDiv.style.color = 'var(--purple)';
                 } else {
                     processesDiv.textContent = '💤 Процессы не обнаружены';
-                    processesDiv.style.background = '#e3f2fd';
-                    processesDiv.style.color = '#1565c0';
+                    processesDiv.style.background = 'var(--black)';
+                    processesDiv.style.color = 'var(--muted)';
                 }
-                
+
                 updateUI();
-                updateStatusMessage(data.temperature, parseFloat(data.load));
+                updateStatusMessage(typeof data.temperature === 'number' ? data.temperature : 0, parseFloat(data.load) || 0);
             } catch (error) {
                 console.error('Ошибка получения статуса:', error);
             }
@@ -500,7 +538,7 @@
             const autoToggle = document.getElementById('autoToggle');
             const intelligentToggle = document.getElementById('intelligentToggle');
             const modeBadge = document.getElementById('modeBadge');
-            
+
             if (turboEnabled) {
                 turboBtn.textContent = 'Выключить';
                 turboBtn.classList.remove('off');
@@ -508,7 +546,7 @@
                 turboBtn.textContent = 'Включить';
                 turboBtn.classList.add('off');
             }
-            
+
             if (autoMode) {
                 autoToggle.classList.add('active');
                 turboBtn.disabled = true;
@@ -520,7 +558,7 @@
                 turboBtn.style.opacity = '1';
                 modeBadge.textContent = 'Выкл';
             }
-            
+
             if (intelligentMode) {
                 intelligentToggle.classList.add('active');
             } else {
@@ -559,7 +597,7 @@
 
         async function toggleTurbo() {
             if (autoMode) return;
-            
+
             try {
                 await fetch('/api/turbo', {
                     method: 'POST',

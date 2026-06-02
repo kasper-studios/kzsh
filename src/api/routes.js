@@ -29,9 +29,12 @@ router.get('/status', async (req, res) => {
         
         // Обновляем статистику температуры
         statsManager.updateTempStats(temperature);
-        
+
         // Обновляем историю
         historyManager.addToHistory(temperature, load, powerManager.getTurboState());
+
+        // Обновляем статус батареи перед отправкой
+        await batteryManager.updateStatus();
         
         res.json({
             temperature: temperature,

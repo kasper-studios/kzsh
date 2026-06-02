@@ -13,6 +13,21 @@ class BatteryManager {
     }
 
     checkBatteryStatus() {
+        let acOnline = false;
+        try {
+            const batteryPath = '/sys/class/power_supply';
+            const supplies = fs.readdirSync(batteryPath);
+            for (const supply of supplies) {
+                const typePath = path.join(batteryPath, supply, 'type');
+                if (fs.existsSync(typePath) && fs.readFileSync(typePath, 'utf8').trim().toLowerCase() === 'mains') {
+                    const onlinePath = path.join(batteryPath, supply, 'online');
+                    if (fs.existsSync(onlinePath)) {
+                        acOnline = fs.readFileSync(onlinePath, 'utf8').trim() === '1';
+                    }
+                }
+            }
+        } catch (e) {}
+
         try {
             const batteryPath = '/sys/class/power_supply';
             const supplies = fs.readdirSync(batteryPath);
@@ -33,7 +48,8 @@ class BatteryManager {
                             capacity,
                             level: capacity,
                             status: status.toLowerCase(),
-                            isCharging: status.toLowerCase() === 'charging'
+                            isCharging: status.toLowerCase() === 'charging',
+                            acOnline
                         };
                     } catch (e) {
                         continue;
@@ -47,7 +63,8 @@ class BatteryManager {
                     capacity: 100,
                     level: 100,
                     status: 'unknown',
-                    isCharging: false
+                    isCharging: false,
+                    acOnline
                 };
             }
 
@@ -56,7 +73,8 @@ class BatteryManager {
                 capacity: 100,
                 level: 100,
                 status: 'unknown',
-                isCharging: false
+                isCharging: false,
+                acOnline
             };
         } catch (e) {
             return {
@@ -64,7 +82,8 @@ class BatteryManager {
                 capacity: 100,
                 level: 100,
                 status: 'unknown',
-                isCharging: false
+                isCharging: false,
+                acOnline
             };
         }
     }
@@ -77,7 +96,10 @@ class BatteryManager {
     }
 
     canUseBoost() {
-        return !this.status.hasBattery || (this.status.isCharging && this.status.level >= 50);
+        const s = this.status;
+        if (!s.hasBattery) return true;
+        if (s.acOnline) return true;
+        return s.isCharging && s.level >= 50;
     }
 
     getStatus() {

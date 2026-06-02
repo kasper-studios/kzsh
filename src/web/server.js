@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const os = require('os-utils');
 
 // Логгер должен быть первым
@@ -35,7 +36,23 @@ app.get('/healthz', (req, res) => {
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', '..', 'public')));
+// Поиск public директории - ищем public рядом с .config/kzsh или в корне репо
+let publicPath;
+const configDir = path.dirname(path.dirname(__dirname));
+const repoDir = path.dirname(configDir);
+
+if (fs.existsSync(path.join(repoDir, 'public'))) {
+    publicPath = path.join(repoDir, 'public');
+} else if (fs.existsSync(path.join(configDir, 'public'))) {
+    publicPath = path.join(configDir, 'public');
+} else {
+    publicPath = path.join(configDir, 'public');
+}
+app.use(express.static(publicPath));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+});
 
 // API роуты
 app.use('/api', apiRoutes);
@@ -130,9 +147,8 @@ app.listen(PORT, async () => {
     // Сразу проверяем температуру
     try {
         const temp = await temperatureReader.getCpuTemperature();
-        if (temp >= TEMP_THRESHOLD && powerManager.getTurboState()) {
-            console.log(`🔥🔥🔥 ВНИМАНИЕ! Температура ${temp.toFixed(1)}°C при запуске! Отключаю турбо...`);
-            await powerManager.setPowerMode(false);
+        if (temp >= TEMP_THRESHOLD) {
+            console.log(`🔥🔥🔥 ВНИМАНИЕ! Температура ${temp.toFixed(1)}°C при запуске!`);
         }
     } catch (e) {
         console.log('⚠️ Не удалось проверить температуру при старте');
