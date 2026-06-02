@@ -34,11 +34,17 @@ class HealthCheck {
     }
 
     async checkCpuLoad() {
-        const load = await new Promise((resolve) => {
-            os.cpuUsage((v) => resolve(v * 100));
-        });
-        if (load > 95) {
-            this.issues.push({ component: 'cpu', message: `Нагрузка ${load.toFixed(1)}%` });
+        const cpus = os.cpus();
+        let idle = 0, total = 0;
+        for (const cpu of cpus) {
+            for (const type in cpu.times) {
+                total += cpu.times[type];
+            }
+            idle += cpu.times.idle;
+        }
+        const usage = ((total - idle) / total) * 100;
+        if (usage > 95) {
+            this.issues.push({ component: 'cpu', message: `Нагрузка ${usage.toFixed(1)}%` });
         }
     }
 
