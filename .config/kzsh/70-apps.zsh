@@ -109,6 +109,14 @@ kdaemon() {
       if [[ -f "$src" ]]; then
         mkdir -p "$HOME/.config/systemd/user"
         cp "$src" "$dst"
+        # Install dependencies for Node.js daemons
+        if [[ -f "$repo_dir/package.json" ]]; then
+          print -P "%F{yellow}📦 Installing dependencies...%f"
+          cd "$repo_dir" && npm install --silent
+          if [[ $? -eq 0 ]]; then
+            print -P "✅ Dependencies installed"
+          fi
+        fi
         systemctl --user daemon-reload
         print -P "✅ Service %F{cyan}$svc_name.service%f installed"
       else
