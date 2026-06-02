@@ -40,24 +40,39 @@ let autoMode = false;
 let lastBoostChange = Date.now();
 let turboEnabled = false;
 
+let lastCpuStats = null;
+
 function getCpuLoad() {
     try {
-        const cpus = os.cpus();
-        let totalIdle = 0;
-        let totalTick = 0;
+        const stat = fs.readFileSync('/proc/stat', 'utf8').split('\n')[0];
+        const parts = stat.split(/\s+/).slice(1);
+        const [user, nice, system, idle, iowait, irq, softirq] = parts.map(Number);
         
-        cpus.forEach(cpu => {
-            for (const type in cpu.times) {
-                totalTick += cpu.times[type];
-            }
-            totalIdle += cpu.times.idle;
-        });
+        const currentStats = {
+            user, nice, system, idle, iowait, irq, softirq,
+            total: user + nice + system + idle + iowait + irq + softirq
+        };
         
-        const idle = totalIdle / cpus.length;
-        const total = totalTick / cpus.length;
-        const usage = 100 - ~~(100 * idle / total);
+        // При первом вызове просто сохраняем статистику
+        if (!lastCpuStats) {
+            lastCpuStats = currentStats;
+            return 0;
+        }
         
-        return Math.max(0, Math.min(usage, 100));
+        // Вычисляем дельту
+        const deltaTotalTime = currentStats.total - lastCpuStats.total;
+        const deltaIdleTime = currentStats.idle - lastCpuStats.idle;
+        
+        // Если нет движения - вернуть 0
+        if (deltaTotalTime === 0) {
+            return 0;
+        }
+        
+        // Вычисляем процент использования
+        const usage = 100 * (deltaTotalTime - deltaIdleTime) / deltaTotalTime;
+        lastCpuStats = currentStats;
+        
+        return Math.max(0, Math.min(Math.round(usage), 100));
     } catch (e) {
         return 0;
     }
