@@ -4,9 +4,10 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/node %h/.kzsh-repo/.config/kzsh/src/web/server.js
+ExecStart=/usr/bin/node %h/.kzsh-repo/.config/kzsh/src/demons/termoregulator-linux.js
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=default.target
+Alias=termoregulator.service

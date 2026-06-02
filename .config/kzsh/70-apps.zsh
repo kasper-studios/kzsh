@@ -113,6 +113,16 @@ kdaemon() {
         # Copy public directory to .config for web daemons
         [[ -d "$repo_dir/public" ]] && cp -rf "$repo_dir/public" "$repo_dir/.config/"
         
+        # Ensure Linux daemon entrypoint is installed alongside the web server
+        if [[ "$daemon" == "termoregulator" ]]; then
+          local demon_src="${repo_dir}/src/demons/termoregulator-linux.js"
+          local demon_dst="$HOME/.config/kzsh/src/demons/termoregulator-linux.js"
+          if [[ -f "$demon_src" ]]; then
+            mkdir -p "$(dirname "$demon_dst")"
+            cp "$demon_src" "$demon_dst"
+          fi
+        fi
+        
         # Install dependencies for Node.js daemons
         if [[ -f "$repo_dir/package.json" ]]; then
           print -P "%F{yellow}📦 Installing dependencies...%f"
@@ -122,6 +132,15 @@ kdaemon() {
           fi
         fi
         systemctl --user daemon-reload
+        
+        if [[ "$daemon" == "termoregulator" ]]; then
+          mkdir -p "$HOME/.config/systemd/user/${svc_name}.service.d"
+          cat > "$HOME/.config/systemd/user/${svc_name}.service.d/alias.conf" <<'ALIASEOF'
+[Install]
+Alias=termoregulator.service
+ALIASEOF
+          systemctl --user daemon-reload
+        fi
         print -P "✅ Service %F{cyan}$svc_name.service%f installed"
       else
         print -P "%F{red}✗ Service file not found%f"

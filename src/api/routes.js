@@ -7,7 +7,7 @@ const processManager = require('../core/processes-linux');
 const autoControl = require('../core/auto-control-linux');
 const statsManager = require('../services/stats');
 const historyManager = require('../services/history');
-const healthCheck = require('../services/health-check');
+const healthCheck = require('../services/health-check-linux');
 const logCleaner = require('../services/log-cleaner');
 
 const router = express.Router();

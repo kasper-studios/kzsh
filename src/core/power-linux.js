@@ -100,7 +100,12 @@ class PowerManager {
         const profiles = ['performance', 'balanced', 'power-saver'];
         for (const p of profiles) {
             try {
-                const out = await new Promise((resolve) => exec(`powerprofilesctl get ${p}`, (err, stdout) => resolve((stdout || '').trim().toLowerCase()));
+                const out = await new Promise((resolve, reject) => {
+                    exec(`powerprofilesctl get ${p}`, (err, stdout) => {
+                        if (err) resolve('');
+                        else resolve((stdout || '').trim().toLowerCase());
+                    });
+                });
                 if (out === p || out === 'active') {
                     this.currentProfile = p;
                     this.turboEnabled = p === 'performance';

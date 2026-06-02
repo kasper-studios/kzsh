@@ -141,19 +141,17 @@ class AutoControl {
 
         await batteryManager.updateStatus();
         const status = batteryManager.getStatus();
-        const canUseBoost = !status.hasBattery || (status.isCharging && status.level >= 50);
+
+        if (!batteryManager.canUseBoost() && targetProfile === 'performance') {
+            const mode = status.isCharging ? 'зарядка' : 'отключена';
+            console.log(`🔋 Батарея: ${mode}, ${status.level}% → не даю Performance, жду температуры/нагрузки`);
+            targetProfile = 'balanced';
+        }
 
         if (targetProfile === 'power-saver' && temp >= TEMP_THRESHOLD) {
             console.log(`🔥🔥🔥 ПЕРЕГРЕВ ${temp.toFixed(1)}°C!`);
             statsManager.incrementOverheatingPrevented();
             statsManager.saveStats();
-        }
-
-        if (!canUseBoost && targetProfile === 'performance') {
-            const mode = status.isCharging ? 'зарядка' : 'отключена';
-            console.log(`🔋 Батарея: ${mode}, ${status.level}% → ставим Power Saver вместо Performance`);
-            await powerManager.setPowerMode('power-saver');
-            return;
         }
 
         await powerManager.setPowerMode(targetProfile);
