@@ -101,11 +101,16 @@ class PowerManager {
         return Date.now() - this.lastBoostChange > COOLDOWN;
     }
 
+    getTimeUntilNextChange() {
+        const timeSinceLastChange = Date.now() - this.lastBoostChange;
+        const remaining = COOLDOWN - timeSinceLastChange;
+        return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+    }
+
     getTurboState() {
         return this.turboEnabled;
     }
 
-    // Применение режима при старте
     async applyOnStartup() {
         await this.checkCurrentBoostState();
         console.log(`✅ Инициализирован режим: ${this.currentProfile}`);

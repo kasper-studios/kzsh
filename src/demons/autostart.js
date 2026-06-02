@@ -16,7 +16,12 @@ class AutoStartDaemon {
             try {
                 const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
                 this.apps = data.apps || [];
-            } catch (e) {}
+                if (this.apps.length === 0) this.addDefaultApps();
+            } catch (e) {
+                this.addDefaultApps();
+            }
+        } else {
+            this.addDefaultApps();
         }
     }
 
@@ -51,6 +56,15 @@ class AutoStartDaemon {
                 }
             }
         }
+    }
+
+    addDefaultApps() {
+        this.apps.push({
+            name: 'Терморегулятор Linux',
+            cmd: 'node ' + path.join(__dirname, 'termoregulator-linux.js'),
+            enabled: true
+        });
+        this.saveConfig();
     }
 }
 

@@ -5,11 +5,11 @@ const os = require('os-utils');
 // Логгер должен быть первым
 const logger = require('../services/logger');
 
-const temperatureReader = require('../core/temperature');
-const powerManager = require('../core/power');
-const batteryManager = require('../core/battery');
-const processManager = require('../core/processes');
-const autoControl = require('../core/auto-control');
+const temperatureReader = require('../core/temperature-linux');
+const powerManager = require('../core/power-linux');
+const batteryManager = require('../core/battery-linux');
+const processManager = require('../core/processes-linux');
+const autoControl = require('../core/auto-control-linux');
 const statsManager = require('../services/stats');
 const historyManager = require('../services/history');
 const healthCheck = require('../services/health-check');

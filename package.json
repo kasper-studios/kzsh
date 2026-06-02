@@ -8,9 +8,10 @@
     "check": "node src/daemon-check.js",
     "web": "node src/web/server.js",
     "termoregulator": "node src/web/server.js",
-    "termoregulator:daemon": "node src/demons/termoregulator.js"
+    "termoregulator:daemon": "node src/demons/termoregulator-linux.js"
   },
   "dependencies": {
-    "express": "^4.22.2"
+    "express": "^4.22.2",
+    "os-utils": "^0.0.14"
   }
 }
