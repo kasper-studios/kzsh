@@ -71,7 +71,7 @@ ln -sf "$REPO_DIR/.config/kzsh" "$INSTALL_DIR"
 # Copy public directory to .config for web daemons
 print_color "Setting up web daemon resources..."
 [[ -d "$REPO_DIR/public" ]] && cp -rf "$REPO_DIR/public" "$REPO_DIR/.config/"
-[[ -d "$REPO_DIR/src" ]] && cp -rf "$REPO_DIR/src" "$REPO_DIR/.config/kzsh/
+[[ -d "$REPO_DIR/src" ]] && cp -rf "$REPO_DIR/src" "$REPO_DIR/.config/kzsh/"
 
 # Install Node.js dependencies if package.json exists
 if [[ -f "$REPO_DIR/package.json" ]]; then
