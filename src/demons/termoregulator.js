@@ -297,7 +297,7 @@ setInterval(async () => {
         : TEMP_HIGH;
     
     // ПОНИЖЕНИЕ профиля: быстрый cooldown (5 сек), при критическом перегреве — мгновенно
-    if (turboEnabled && temp > effectiveHighThreshold && canDowngrade(temp)) {
+    if (turboEnabled && temp >= effectiveHighThreshold && canDowngrade(temp)) {
         const reason = temp >= TEMP_THRESHOLD
             ? `🔥 КРИТИЧЕСКИЙ ПЕРЕГРЕВ ${temp}°C`
             : trend > TEMP_TREND_RISE_THRESHOLD

@@ -100,13 +100,13 @@ class AutoControl {
         if (this.intelligentMode && canChange) {
             // Если есть важные процессы - разрешаем буст
             if (detectedProcesses.length > 0) {
-                if (!turboEnabled && temp < TEMP_HIGH) {
+                if (!turboEnabled && temp < TEMP_SAFE) {
                     console.log(`🎮 Обнаружены процессы: ${detectedProcesses.join(', ')} - включаю буст (${temp}°C)`);
                     await powerManager.setPowerMode(true);
                 }
             }
             // Если простой и жарко - вырубаем буст
-            else if (load < IDLE_LOAD_THRESHOLD && temp > IDLE_TEMP_THRESHOLD && turboEnabled) {
+            else if (load < IDLE_LOAD_THRESHOLD && temp >= IDLE_TEMP_THRESHOLD && turboEnabled) {
                 console.log(`💤 Простой (${load.toFixed(1)}%) + жарко (${temp}°C) - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }
@@ -116,7 +116,7 @@ class AutoControl {
                 await powerManager.setPowerMode(true);
             }
             // Если высокая нагрузка и температура ВЫСОКАЯ - вырубаем буст
-            else if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && turboEnabled) {
+            else if (load > HIGH_LOAD_THRESHOLD && temp >= TEMP_HIGH && turboEnabled) {
                 console.log(`🔥 Высокая нагрузка ${load.toFixed(1)}% + жарко ${temp}°C - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }
@@ -127,7 +127,7 @@ class AutoControl {
             if (temp < TEMP_SAFE && !turboEnabled) {
                 console.log(`❄️ Температура ${temp}°C (безопасно) - включаю буст`);
                 await powerManager.setPowerMode(true);
-            } else if (temp > TEMP_HIGH && turboEnabled) {
+            } else if (temp >= TEMP_HIGH && turboEnabled) {
                 console.log(`🔥 Температура ${temp}°C (высокая) - отключаю буст`);
                 await powerManager.setPowerMode(false);
             }

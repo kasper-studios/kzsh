@@ -9,6 +9,8 @@ const {
     TEMP_THRESHOLD,
     TEMP_HIGH,
     TEMP_SAFE,
+    TEMP_MEDIUM,
+    COOLDOWN,
     IDLE_LOAD_THRESHOLD,
     IDLE_TEMP_THRESHOLD,
     HIGH_LOAD_THRESHOLD,
@@ -25,6 +27,8 @@ class AutoControl {
         this.tempHistory = [];
         this.lastProcessCheck = 0;
         this.detectedProcesses = [];
+        this.coolingPhase = false;
+        this.coolingPhaseStart = 0;
         this.configPath = path.join(__dirname, '..', '..', '.config', 'auto-mode.json');
         this.loadConfig();
     }
@@ -53,9 +57,9 @@ class AutoControl {
     }
 
     getBaseProfile(temp, load) {
-        if (temp > 87) return 'power-saver';
-        if (temp >= 80) return 'balanced';
-        if (temp < 80 && load > 50) return 'performance';
+        if (temp >= TEMP_HIGH) return 'power-saver';
+        if (temp >= TEMP_SAFE) return 'balanced';
+        if (temp < TEMP_SAFE && load > HIGH_LOAD_THRESHOLD) return 'performance';
         return 'balanced';
     }
 
@@ -104,7 +108,66 @@ class AutoControl {
         if (!this.autoMode || !temp) return;
 
         const currentProfile = powerManager.getProfile();
-        let targetProfile = this.getBaseProfile(temp, load);
+        const { trend, rate } = this.analyzeTempTrend(temp);
+
+        // 1. Определение входа/продления фазы охлаждения
+        const isOverheated = temp >= TEMP_HIGH;
+        const isRisingFast = trend === 'rising-fast' && temp > TEMP_MEDIUM;
+
+        if (isOverheated || isRisingFast) {
+            if (!this.coolingPhase) {
+                this.coolingPhase = true;
+                this.coolingPhaseStart = Date.now();
+                console.log(`❄️ Вход в фазу охлаждения: temp=${temp.toFixed(1)}°C, trend=${trend} (${rate}°C/с)`);
+            } else {
+                const now = Date.now();
+                // Продлеваем таймер охлаждения, но логируем не чаще раза в 6 секунд, чтобы не спамить
+                if (now - this.coolingPhaseStart > 6000) {
+                    this.coolingPhaseStart = now;
+                    console.log(`⏳ Продление фазы охлаждения (еще на 30с): temp=${temp.toFixed(1)}°C, trend=${trend}`);
+                }
+            }
+        }
+
+        let targetProfile = 'balanced';
+
+        // 2. Логика фазы охлаждения
+        if (this.coolingPhase) {
+            const elapsed = Date.now() - this.coolingPhaseStart;
+            const isTempSafe = temp < TEMP_SAFE;
+            const isTrendSafe = trend !== 'rising-fast' && trend !== 'rising';
+
+            if (elapsed >= COOLDOWN && isTempSafe && isTrendSafe) {
+                this.coolingPhase = false;
+                console.log(`✅ Выход из фазы охлаждения: temp=${temp.toFixed(1)}°C, trend=${trend}`);
+                targetProfile = this.getBaseProfile(temp, load);
+            } else {
+                targetProfile = 'power-saver';
+            }
+        } else {
+            // Обычный режим
+            targetProfile = this.getBaseProfile(temp, load);
+
+            if (this.intelligentMode) {
+                const detectedProcesses = await this.detectBoostProcesses();
+
+                // Буст разрешен только при безопасной температуре
+                if (detectedProcesses.length > 0 && temp < TEMP_SAFE && currentProfile !== 'performance') {
+                    const status = batteryManager.getStatus();
+                    const canBoost = !status.hasBattery ||
+                        status.isCharging ||
+                        !this.batteryProtection ||
+                        status.level >= 50;
+                    if (canBoost) {
+                        targetProfile = 'performance';
+                        console.log(`🎮 ${detectedProcesses.join(', ')} + ${temp.toFixed(1)}°C → Performance`);
+                    }
+                }
+            }
+        }
+
+        if (targetProfile === currentProfile) return;
+
         const isDowngrade = (p) => {
             const order = { 'performance': 2, 'balanced': 1, 'power-saver': 0 };
             return (order[p] ?? 1) < (order[currentProfile] ?? 1);
@@ -114,42 +177,7 @@ class AutoControl {
             return (order[p] ?? 1) > (order[currentProfile] ?? 1);
         };
 
-        if (this.intelligentMode) {
-            const { trend } = this.analyzeTempTrend(temp);
-            const detectedProcesses = await this.detectBoostProcesses();
-
-            if (detectedProcesses.length > 0 && temp < TEMP_HIGH && currentProfile !== 'performance') {
-                const status = batteryManager.getStatus();
-                // Учитываем batteryProtection
-                const canBoost = !status.hasBattery ||
-                    status.isCharging ||
-                    !this.batteryProtection ||
-                    status.level >= 50;
-                if (canBoost) {
-                    targetProfile = 'performance';
-                    console.log(`🎮 ${detectedProcesses.join(', ')} + ${temp.toFixed(1)}°C → Performance`);
-                }
-            }
-
-            if (trend === 'rising-fast' && temp > 75 && currentProfile === 'performance') {
-                targetProfile = 'power-saver';
-                console.log(`📈 Температура быстро растёт → Power Saver`);
-            }
-
-            if (load < IDLE_LOAD_THRESHOLD && temp > TEMP_HIGH && currentProfile === 'performance') {
-                targetProfile = 'power-saver';
-                console.log(`💤 Простой ${load.toFixed(1)}% + жарко ${temp.toFixed(1)}°C → Power Saver`);
-            }
-
-            if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && currentProfile === 'performance') {
-                targetProfile = 'balanced';
-                console.log(`🔥 Нагрузка ${load.toFixed(1)}% + ${temp.toFixed(1)}°C → Balanced`);
-            }
-        }
-
-        if (targetProfile === currentProfile) return;
-
-        // Используем раздельные cooldown-таймеры
+        // Проверяем cooldown-таймеры
         if (isDowngrade(targetProfile) && !powerManager.canDowngrade(temp)) return;
         if (isUpgrade(targetProfile) && !powerManager.canUpgrade()) return;
 
