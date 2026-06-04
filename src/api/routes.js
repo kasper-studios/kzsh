@@ -42,6 +42,7 @@ router.get('/status', async (req, res) => {
             turboEnabled: powerManager.getTurboState(),
             autoMode: autoControl.getAutoMode(),
             intelligentMode: autoControl.getIntelligentMode(),
+            batteryProtection: autoControl.getBatteryProtection(),
             detectedProcesses: processManager.getDetectedProcesses(),
             saveCount: statsManager.getStats().overheatingPrevented,
             battery: batteryManager.getStatus(),
@@ -92,6 +93,12 @@ router.post('/auto', (req, res) => {
 router.post('/intelligent', (req, res) => {
     autoControl.setIntelligentMode(req.body.enabled);
     res.json({ success: true, intelligentMode: autoControl.getIntelligentMode() });
+});
+
+// Переключение защиты батареи
+router.post('/battery-protection', (req, res) => {
+    autoControl.setBatteryProtection(req.body.enabled);
+    res.json({ success: true, batteryProtection: autoControl.getBatteryProtection() });
 });
 
 // Проверка здоровья системы

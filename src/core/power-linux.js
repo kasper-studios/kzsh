@@ -1,13 +1,14 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { COOLDOWN } = require('../config/constants');
+const { COOLDOWN, COOLDOWN_DOWN, TEMP_THRESHOLD } = require('../config/constants');
 
 class PowerManager {
     constructor() {
         this.currentProfile = 'balanced';
         this.turboEnabled = false;
-        this.lastBoostChange = Date.now();
+        this.lastBoostUp = 0;    // когда последний раз повышали профиль
+        this.lastBoostDown = 0;  // когда последний раз понижали профиль
         this.lastCheckedState = null;
         this.lastStateCheckTime = 0;
         this.stateCheckCacheMs = 3000;
@@ -196,7 +197,12 @@ class PowerManager {
         const prevProfile = this.currentProfile;
         this.currentProfile = profile;
         this.turboEnabled = profile === 'performance';
-        this.lastBoostChange = Date.now();
+        // Обновляем соответствующий таймер
+        if (this.turboEnabled) {
+            this.lastBoostUp = Date.now();
+        } else {
+            this.lastBoostDown = Date.now();
+        }
         this.lastStateCheckTime = 0;
         if (prevProfile !== profile) {
             console.log(`🔧 Режим: ${profile} (${this.turboEnabled ? 'ВКЛЮЧЕН' : 'ВЫКЛЮЧЕН'} турбо)`);
@@ -204,8 +210,20 @@ class PowerManager {
         return true;
     }
 
+    // Можно ли повысить профиль (строгий cooldown 30 сек)
+    canUpgrade() {
+        return Date.now() - this.lastBoostUp > COOLDOWN;
+    }
+
+    // Можно ли понизить профиль (мягкий cooldown 5 сек, 0 при критическом перегреве)
+    canDowngrade(temp) {
+        if (temp >= TEMP_THRESHOLD) return true; // критический перегрев — немедленно
+        return Date.now() - this.lastBoostDown > COOLDOWN_DOWN;
+    }
+
+    // Обратная совместимость: старый canChange() делает оба таймера
     canChange() {
-        return Date.now() - this.lastBoostChange > COOLDOWN;
+        return this.canUpgrade() && this.canDowngrade(0);
     }
 
     getTimeUntilNextChange() {

@@ -21,6 +21,7 @@ class AutoControl {
     constructor() {
         this.autoMode = true;
         this.intelligentMode = true;
+        this.batteryProtection = true; // авто power-saver при низком заряде
         this.tempHistory = [];
         this.lastProcessCheck = 0;
         this.detectedProcesses = [];
@@ -34,8 +35,9 @@ class AutoControl {
                 const data = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
                 if (typeof data.autoMode === 'boolean') this.autoMode = data.autoMode;
                 if (typeof data.intelligentMode === 'boolean') this.intelligentMode = data.intelligentMode;
+                if (typeof data.batteryProtection === 'boolean') this.batteryProtection = data.batteryProtection;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     saveConfig() {
@@ -44,9 +46,10 @@ class AutoControl {
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             fs.writeFileSync(this.configPath, JSON.stringify({
                 autoMode: this.autoMode,
-                intelligentMode: this.intelligentMode
+                intelligentMode: this.intelligentMode,
+                batteryProtection: this.batteryProtection
             }, null, 2));
-        } catch (e) {}
+        } catch (e) { }
     }
 
     getBaseProfile(temp, load) {
@@ -93,7 +96,7 @@ class AutoControl {
                     }
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
         return this.detectedProcesses;
     }
 
@@ -102,7 +105,14 @@ class AutoControl {
 
         const currentProfile = powerManager.getProfile();
         let targetProfile = this.getBaseProfile(temp, load);
-        const turboEnabled = currentProfile === 'performance';
+        const isDowngrade = (p) => {
+            const order = { 'performance': 2, 'balanced': 1, 'power-saver': 0 };
+            return (order[p] ?? 1) < (order[currentProfile] ?? 1);
+        };
+        const isUpgrade = (p) => {
+            const order = { 'performance': 2, 'balanced': 1, 'power-saver': 0 };
+            return (order[p] ?? 1) > (order[currentProfile] ?? 1);
+        };
 
         if (this.intelligentMode) {
             const { trend } = this.analyzeTempTrend(temp);
@@ -110,43 +120,50 @@ class AutoControl {
 
             if (detectedProcesses.length > 0 && temp < TEMP_HIGH && currentProfile !== 'performance') {
                 const status = batteryManager.getStatus();
-                const canBoost = !status.hasBattery || (status.isCharging && status.level >= 50);
+                // Учитываем batteryProtection
+                const canBoost = !status.hasBattery ||
+                    status.isCharging ||
+                    !this.batteryProtection ||
+                    status.level >= 50;
                 if (canBoost) {
                     targetProfile = 'performance';
                     console.log(`🎮 ${detectedProcesses.join(', ')} + ${temp.toFixed(1)}°C → Performance`);
                 }
             }
 
-            if (trend === 'rising-fast' && temp > 75 && turboEnabled) {
-                targetProfile = 'balanced';
-                console.log(`📈 Температура быстро растёт → Balanced`);
-            } else if (trend === 'falling-fast' && temp < 80 && !turboEnabled) {
-                targetProfile = 'performance';
-                console.log(`📉 Температура быстро падает → Performance`);
+            if (trend === 'rising-fast' && temp > 75 && currentProfile === 'performance') {
+                targetProfile = 'power-saver';
+                console.log(`📈 Температура быстро растёт → Power Saver`);
             }
 
-            if (load < IDLE_LOAD_THRESHOLD && temp > TEMP_HIGH && turboEnabled) {
+            if (load < IDLE_LOAD_THRESHOLD && temp > TEMP_HIGH && currentProfile === 'performance') {
                 targetProfile = 'power-saver';
                 console.log(`💤 Простой ${load.toFixed(1)}% + жарко ${temp.toFixed(1)}°C → Power Saver`);
             }
 
-            if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && turboEnabled) {
+            if (load > HIGH_LOAD_THRESHOLD && temp > TEMP_HIGH && currentProfile === 'performance') {
                 targetProfile = 'balanced';
                 console.log(`🔥 Нагрузка ${load.toFixed(1)}% + ${temp.toFixed(1)}°C → Balanced`);
             }
         }
 
         if (targetProfile === currentProfile) return;
-        if (!powerManager.canChange()) return;
+
+        // Используем раздельные cooldown-таймеры
+        if (isDowngrade(targetProfile) && !powerManager.canDowngrade(temp)) return;
+        if (isUpgrade(targetProfile) && !powerManager.canUpgrade()) return;
 
         await batteryManager.updateStatus();
         const status = batteryManager.getStatus();
 
-        if (!batteryManager.canUseBoost() && targetProfile === 'performance') {
+        // Блокируем performance при низком заряде если защита включена
+        if (this.batteryProtection && !batteryManager.canUseBoost() && targetProfile === 'performance') {
             const mode = status.isCharging ? 'зарядка' : 'отключена';
-            console.log(`🔋 Батарея: ${mode}, ${status.level}% → не даю Performance, жду температуры/нагрузки`);
+            console.log(`🔋 Батарея: ${mode}, ${status.level}% → не даю Performance`);
             targetProfile = 'balanced';
         }
+
+        if (targetProfile === currentProfile) return;
 
         if (targetProfile === 'power-saver' && temp >= TEMP_THRESHOLD) {
             console.log(`🔥🔥🔥 ПЕРЕГРЕВ ${temp.toFixed(1)}°C!`);
@@ -168,6 +185,13 @@ class AutoControl {
         this.saveConfig();
     }
     getIntelligentMode() { return this.intelligentMode; }
+
+    setBatteryProtection(enabled) {
+        this.batteryProtection = enabled;
+        this.saveConfig();
+        console.log(`🔋 Защита батареи ${enabled ? 'включена' : 'отключена'}`);
+    }
+    getBatteryProtection() { return this.batteryProtection; }
 }
 
 module.exports = new AutoControl();
