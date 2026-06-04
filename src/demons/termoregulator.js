@@ -15,7 +15,8 @@ const {
     COOLDOWN_DOWN,
     TEMP_TREND_WINDOW,
     TEMP_TREND_RISE_THRESHOLD,
-    TEMP_TREND_SAFE_OFFSET
+    TEMP_TREND_SAFE_OFFSET,
+    MIN_BATTERY_LEVEL
 } = require('../config/constants');
 
 const history = require('../services/history');
@@ -49,6 +50,7 @@ let turboEnabled = false;
 let minTemp = null;
 let maxTemp = null;
 let sessionStartTime = Date.now();
+let batteryProtection = true; // авто power-saver при низком заряде
 
 // Скользящий буфер температур для анализа тренда
 const tempBuffer = [];
@@ -203,7 +205,8 @@ app.get('/api/status', async (req, res) => {
         maxTemp,
         load, 
         turboEnabled, 
-        autoMode, 
+        autoMode,
+        batteryProtection,
         profile: turboEnabled ? 'performance' : 'power-saver',
         battery
     });
@@ -250,9 +253,16 @@ app.post('/api/auto', (req, res) => {
     res.json({ success: true, autoMode });
 });
 
+app.post('/api/battery-protection', (req, res) => {
+    batteryProtection = req.body.enabled;
+    console.log(`🔋 Защита батареи ${batteryProtection ? 'включена' : 'отключена'}`);
+    res.json({ success: true, batteryProtection });
+});
+
 setInterval(async () => {
     const temp = getCpuTemperature();
     const load = getCpuLoad();
+    const battery = getBatteryInfo();
     
     // Обновляем историю и буфер тренда
     if (temp !== null) {
@@ -268,6 +278,16 @@ setInterval(async () => {
     }
     
     if (!autoMode || !temp) return;
+    
+    // Проверяем батарею: если заряд низкий и не на зарядке — принудительно power-saver
+    const batteryLow = batteryProtection && !battery.isCharging && battery.capacity < MIN_BATTERY_LEVEL;
+    if (batteryLow) {
+        if (turboEnabled) {
+            console.log(`🔋 Заряд ${battery.capacity}% < ${MIN_BATTERY_LEVEL}% — выключаю буст для экономии`);
+            await setPowerMode(false);
+        }
+        return; // не включаем буст пока батарея не зарядится
+    }
     
     const trend = getTempTrend();
     

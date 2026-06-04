@@ -294,6 +294,14 @@
                 <span class="control-label">Интеллектуальный режим</span>
                 <div class="toggle active" id="intelligentToggle" onclick="toggleIntelligent()"></div>
             </div>
+
+            <div class="control-row">
+                <span class="control-label">
+                    🔋 Экономия батареи
+                    <span style="font-size:12px; color: var(--muted); margin-left: 6px;">power-saver при заряде &lt;50%</span>
+                </span>
+                <div class="toggle active" id="batteryProtectionToggle" onclick="toggleBatteryProtection()"></div>
+            </div>
         </div>
 
         <div class="chart-container">
@@ -354,6 +362,7 @@
         let turboEnabled = true;
         let autoMode = true;
         let intelligentMode = true;
+        let batteryProtection = true;
         let chart = null;
         let currentPeriod = '2min';
 
@@ -513,6 +522,9 @@
                 turboEnabled = data.turboEnabled;
                 autoMode = data.autoMode;
                 intelligentMode = data.intelligentMode;
+                if (typeof data.batteryProtection !== 'undefined') {
+                    batteryProtection = data.batteryProtection;
+                }
 
                 const processesDiv = document.getElementById('processes');
                 const procs = data.detectedProcesses || [];
@@ -563,6 +575,13 @@
                 intelligentToggle.classList.add('active');
             } else {
                 intelligentToggle.classList.remove('active');
+            }
+
+            const batteryToggle = document.getElementById('batteryProtectionToggle');
+            if (batteryProtection) {
+                batteryToggle.classList.add('active');
+            } else {
+                batteryToggle.classList.remove('active');
             }
         }
 
@@ -633,6 +652,19 @@
                 await updateStatus();
             } catch (error) {
                 console.error('Ошибка переключения умного режима:', error);
+            }
+        }
+
+        async function toggleBatteryProtection() {
+            try {
+                await fetch('/api/battery-protection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: !batteryProtection })
+                });
+                await updateStatus();
+            } catch (error) {
+                console.error('Ошибка переключения защиты батареи:', error);
             }
         }
 
