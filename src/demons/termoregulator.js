@@ -11,7 +11,11 @@ const {
     TEMP_HIGH,
     TEMP_SAFE,
     IDLE_LOAD_THRESHOLD,
-    COOLDOWN
+    COOLDOWN,
+    COOLDOWN_DOWN,
+    TEMP_TREND_WINDOW,
+    TEMP_TREND_RISE_THRESHOLD,
+    TEMP_TREND_SAFE_OFFSET
 } = require('../config/constants');
 
 const history = require('../services/history');
@@ -39,11 +43,15 @@ if (!fs.existsSync(logDir)) {
 }
 
 let autoMode = false;
-let lastBoostChange = Date.now();
+let lastBoostUp = 0;    // когда последний раз ПОВЫШАЛИ профиль (performance)
+let lastBoostDown = 0;  // когда последний раз ПОНИЖАЛИ профиль (power-saver)
 let turboEnabled = false;
 let minTemp = null;
 let maxTemp = null;
 let sessionStartTime = Date.now();
+
+// Скользящий буфер температур для анализа тренда
+const tempBuffer = [];
 
 let lastCpuStats = null;
 
@@ -133,7 +141,11 @@ async function setPowerMode(isMax) {
     const profile = isMax ? 'performance' : 'power-saver';
     await execAsync(`powerprofilesctl set ${profile}`);
     turboEnabled = isMax;
-    lastBoostChange = Date.now();
+    if (isMax) {
+        lastBoostUp = Date.now();
+    } else {
+        lastBoostDown = Date.now();
+    }
 }
 
 function execAsync(cmd) {
@@ -142,8 +154,25 @@ function execAsync(cmd) {
     });
 }
 
-function canChange() {
-    return Date.now() - lastBoostChange > COOLDOWN;
+// Можно ли ПОВЫСИТЬ профиль (строгий cooldown 30 сек)
+function canUpgrade() {
+    return Date.now() - lastBoostUp > COOLDOWN;
+}
+
+// Можно ли ПОНИЗИТЬ профиль (мягкий cooldown 5 сек, 0 при критическом перегреве)
+function canDowngrade(temp) {
+    if (temp >= TEMP_THRESHOLD) return true; // критический перегрев — немедленно
+    return Date.now() - lastBoostDown > COOLDOWN_DOWN;
+}
+
+// Вычисляем средний тренд температуры за последние N тиков (°C/тик)
+function getTempTrend() {
+    if (tempBuffer.length < 2) return 0;
+    let totalDelta = 0;
+    for (let i = 1; i < tempBuffer.length; i++) {
+        totalDelta += tempBuffer[i] - tempBuffer[i - 1];
+    }
+    return totalDelta / (tempBuffer.length - 1);
 }
 
 app.get('/', (req, res) => {
@@ -225,27 +254,41 @@ setInterval(async () => {
     const temp = getCpuTemperature();
     const load = getCpuLoad();
     
-    // Обновляем историю
+    // Обновляем историю и буфер тренда
     if (temp !== null) {
+        // Скользящий буфер для анализа тренда
+        tempBuffer.push(temp);
+        if (tempBuffer.length > TEMP_TREND_WINDOW) tempBuffer.shift();
+        
         history.addToHistory(temp, load, turboEnabled);
         
         // Обновляем min/max температуры
-        if (minTemp === null || temp < minTemp) {
-            minTemp = temp;
-        }
-        if (maxTemp === null || temp > maxTemp) {
-            maxTemp = temp;
-        }
+        if (minTemp === null || temp < minTemp) minTemp = temp;
+        if (maxTemp === null || temp > maxTemp) maxTemp = temp;
     }
     
-    // Авто-режим
-    if (!autoMode || !temp || !canChange()) return;
+    if (!autoMode || !temp) return;
     
-    if (temp > TEMP_HIGH && turboEnabled) {
-        console.log(`🔥 ${temp}°C - выключаю буст`);
+    const trend = getTempTrend();
+    
+    // Адаптивный порог: при быстром росте температуры — срабатываем раньше
+    const effectiveHighThreshold = (trend > TEMP_TREND_RISE_THRESHOLD)
+        ? TEMP_HIGH - TEMP_TREND_SAFE_OFFSET
+        : TEMP_HIGH;
+    
+    // ПОНИЖЕНИЕ профиля: быстрый cooldown (5 сек), при критическом перегреве — мгновенно
+    if (turboEnabled && temp > effectiveHighThreshold && canDowngrade(temp)) {
+        const reason = temp >= TEMP_THRESHOLD
+            ? `🔥 КРИТИЧЕСКИЙ ПЕРЕГРЕВ ${temp}°C`
+            : trend > TEMP_TREND_RISE_THRESHOLD
+                ? `🔥 ${temp}°C (тренд +${trend.toFixed(1)}°C/тик, порог снижен до ${effectiveHighThreshold}°C)`
+                : `🔥 ${temp}°C превышает ${effectiveHighThreshold}°C`;
+        console.log(`${reason} - выключаю буст`);
         await setPowerMode(false);
-    } else if (load >= IDLE_LOAD_THRESHOLD && temp < TEMP_SAFE && !turboEnabled) {
-        console.log(`⚡ Нагрузка ${load}% + температура ${temp}°C - включаю буст`);
+    }
+    // ПОВЫШЕНИЕ профиля: строгий cooldown (30 сек) + температура должна быть безопасной + тренд не растёт
+    else if (!turboEnabled && load >= IDLE_LOAD_THRESHOLD && temp < TEMP_SAFE && trend <= 0.5 && canUpgrade()) {
+        console.log(`⚡ Нагрузка ${load}% + температура ${temp}°C (тренд: ${trend.toFixed(1)}) - включаю буст`);
         await setPowerMode(true);
     }
 }, 2000);
