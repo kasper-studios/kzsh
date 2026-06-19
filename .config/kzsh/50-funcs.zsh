@@ -26,10 +26,10 @@ search() {
 
 mkproj() {
   local name="${1:-newproj}"
-  mkdir -p ~/projects/"$name" && cd ~/projects/"$name"
+  mkdir -p ~/Desktop/projects/"$name" && cd ~/Desktop/projects/"$name"
   echo "# $name" > README.md
   [[ -x "$(command -v git)" ]] && git init >/dev/null 2>&1
-  print -P "📦 %F{blue}Project $name created%f in ~/projects/$name"
+  print -P "📦 %F{blue}Project $name created%f in ~/Desktop/projects/$name"
   ls
 }
 

@@ -12,9 +12,9 @@ fi
 # Navigation
 alias ..='cd ..'
 alias ...='cd ../..'
-alias proj='cd ~/projects 2>/dev/null || { mkdir -p ~/projects && cd ~/projects; }'
-alias tools='cd ~/tools'
-alias scripts='cd ~/scripts 2>/dev/null || { mkdir -p ~/scripts && cd ~/scripts; }'
+alias proj='cd ~/Desktop/projects 2>/dev/null || { mkdir -p ~/Desktop/projects && cd ~/Desktop/projects; }'
+alias tools='cd ~/Desktop/tools'
+alias scripts='cd ~/Desktop/scripts 2>/dev/null || { mkdir -p ~/Desktop/scripts && cd ~/Desktop/scripts; }'
 
 alias cls='clear'
 alias update='kpkg update'
