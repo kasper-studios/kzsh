@@ -76,6 +76,20 @@ kinstall() {
     echo "✅ Runtime core already present."
   fi
 
+  # Phase 1.5: Flatpak (Optional)
+  if [[ "$KZSH_DISTRO" == "arch" || "$KZSH_DISTRO" == "manjaro" || "$KZSH_DISTRO" == "endeavouros" ]]; then
+    if ! command -v flatpak >/dev/null 2>&1; then
+      echo ""
+      read -q "ans?📦 Install Flatpak and enable Flathub repo? [y/N] "
+      echo ""
+      if [[ "$ans" == [yY] ]]; then
+        _kpreflight__sudo pacman -S --noconfirm --needed flatpak
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+        print -P "✅ %F{green}Flatpak & Flathub configured!%f"
+      fi
+    fi
+  fi
+
   # Phase 2: Fonts
   if ! fc-list | grep -qi "nerd\|jetbrains" >/dev/null 2>&1; then
     echo ""
@@ -104,6 +118,14 @@ kinstall() {
       fi
     fi
   done
+
+  # Phase 4: Hardware Drivers
+  if _kpreflight__is_archish; then
+    echo ""
+    read -q "ans?🎮 Detect and install GPU drivers (kdrivers)? [y/N] "
+    echo ""
+    [[ "$ans" == [yY] ]] && kdrivers
+  fi
 
   kcfg set first_run "no"
   echo ""
@@ -506,28 +528,150 @@ kzsh_install_fonts() {
 }
 
 # --- CHEAT SHEET ---
+# --- GPU DRIVERS INSTALLER (kdrivers) ---
+kdrivers() {
+  echo ""
+  print -P "%F{39}%B🎮 KZSH GPU DRIVER INSTALLER%b%f"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if ! _kpreflight__is_archish; then
+    print -P "%F{yellow}⚠ Currently kdrivers automated setup is optimized for Arch Linux.%f"
+    return 1
+  fi
+
+  if ! command -v lspci >/dev/null 2>&1; then
+    print -P "%F{yellow}Installing pciutils to inspect hardware...%f"
+    _kpreflight__sudo pacman -S --noconfirm --needed pciutils >/dev/null 2>&1
+  fi
+
+  local gpu_info
+  gpu_info=$(lspci -nn | grep -Ei 'VGA compatible controller|3D controller|Display controller' || true)
+
+  if [[ -z "$gpu_info" ]]; then
+    print -P "%F{red}✗ No graphics card detected via lspci!%f"
+    return 1
+  fi
+
+  print -P "%F{cyan}Detected GPU(s):%f"
+  echo "$gpu_info"
+  echo ""
+
+  local has_nvidia=0
+  local has_amd=0
+  local has_intel=0
+
+  echo "$gpu_info" | grep -qi "NVIDIA" && has_nvidia=1
+  echo "$gpu_info" | grep -qi "AMD\|ATI\|Radeon" && has_amd=1
+  echo "$gpu_info" | grep -qi "Intel" && has_intel=1
+
+  # Check multilib repo
+  local multilib=0
+  if grep -q "^\[multilib\]" /etc/pacman.conf 2>/dev/null; then
+    multilib=1
+  fi
+
+  # 1. NVIDIA
+  if [[ $has_nvidia -eq 1 ]]; then
+    print -P "%F{green}🟢 NVIDIA GPU identified!%f"
+    
+    # Kernel detection
+    local kpkg="nvidia"
+    local kver=$(uname -r)
+    if [[ "$kver" == *zen* || "$kver" == *lts* || "$kver" == *hardened* ]]; then
+      kpkg="nvidia-dkms"
+      print -P "Kernel: %F{yellow}$kver%f -> using %Bnvidia-dkms%b"
+    else
+      print -P "Kernel: %F{yellow}$kver%f -> using %Bnvidia%b (vanilla)"
+    fi
+
+    local nvidia_pkgs=("$kpkg" "nvidia-utils" "nvidia-settings" "vulkan-icd-loader" "opencl-nvidia")
+    if [[ $multilib -eq 1 ]]; then
+      nvidia_pkgs+=("lib32-nvidia-utils" "lib32-opencl-nvidia")
+    fi
+
+    echo ""
+    print -P "Packages to install: %F{cyan}${nvidia_pkgs[*]}%f"
+    read -q "ans?Install NVIDIA drivers & Vulkan stack? [y/N] "
+    echo ""
+    if [[ "$ans" == [yY] ]]; then
+      _kpreflight__sudo pacman -S --noconfirm --needed "${nvidia_pkgs[@]}"
+      print -P "✅ %F{green}NVIDIA packages installed!%f"
+      print -P "%F{39}💡 Note: For Wayland (Niri/Hyprland), ensure 'nvidia_drm.modeset=1' is in your kernel parameters.%f"
+    fi
+  fi
+
+  # 2. AMD
+  if [[ $has_amd -eq 1 ]]; then
+    print -P "%F{green}🟢 AMD GPU identified!%f"
+    local amd_pkgs=("mesa" "vulkan-radeon" "xf86-video-amdgpu" "libva-mesa-driver" "mesa-vdpau")
+    if [[ $multilib -eq 1 ]]; then
+      amd_pkgs+=("lib32-mesa" "lib32-vulkan-radeon")
+    fi
+
+    echo ""
+    print -P "Packages to install: %F{cyan}${amd_pkgs[*]}%f"
+    read -q "ans?Install AMD Mesa & RADV Vulkan stack? [y/N] "
+    echo ""
+    if [[ "$ans" == [yY] ]]; then
+      _kpreflight__sudo pacman -S --noconfirm --needed "${amd_pkgs[@]}"
+      print -P "✅ %F{green}AMD graphics stack installed!%f"
+    fi
+  fi
+
+  # 3. Intel
+  if [[ $has_intel -eq 1 ]]; then
+    print -P "%F{green}🟢 Intel GPU identified!%f"
+    local intel_pkgs=("mesa" "vulkan-intel" "intel-media-driver")
+    if [[ $multilib -eq 1 ]]; then
+      intel_pkgs+=("lib32-mesa" "lib32-vulkan-intel")
+    fi
+
+    echo ""
+    print -P "Packages to install: %F{cyan}${intel_pkgs[*]}%f"
+    read -q "ans?Install Intel Mesa & Neo/Media stack? [y/N] "
+    echo ""
+    if [[ "$ans" == [yY] ]]; then
+      _kpreflight__sudo pacman -S --noconfirm --needed "${intel_pkgs[@]}"
+      print -P "✅ %F{green}Intel graphics stack installed!%f"
+    fi
+  fi
+
+  echo ""
+  print -P "%F{green}%B✓ GPU Driver configuration finished!%b%f"
+}
+
 khelp() {
   cat << 'HELP' | bat --plain --language=help 2>/dev/null || cat
-KASPERENOK ZSH CHEAT SHEET
+KASPERENOK ZSH CHEAT SHEET (KZSH)
 
-PROJECTS:
-  proj [name]   -> go to projects (mk if missing)
-  mkproj NAME   -> create project scaffold
-  clip [file]   -> copy to Windows clipboard
+PROJECTS & WORKFLOW:
+  proj [name]       -> jump to ~/Desktop/projects (auto-creates if missing)
+  mkproj NAME       -> scaffold new project with git repo
+  clip [file]       -> copy file/stdin to system clipboard (Wayland/X11/WSL)
+  search <query>    -> fast recursive ripgrep search with bat preview
 
-KZSH UTILS:
-  kpkg install  -> distro-agnostic install
-  ksys list/log -> systemd management
-  kapp add/list -> custom command shortcuts
-  kstart add    -> manage autostart commands
-  kcfg edit     -> open config in $EDITOR
-  kcfg get/set  -> manual config edit
+KZSH PACKAGES & DRIVERS:
+  kpkg i|u|s|c      -> install, update, search, check packages or profiles
+  kpkg install ...  -> supports native pacman/apt + AUR helpers + flatpak:pkg
+  kdrivers          -> interactive GPU driver detector & setup (NVIDIA/AMD/Intel)
+  kapp add/list     -> fast command/app alias launcher
+  kstart add/list   -> manage autostart commands & background services
 
-SYSTEM:
-  update        -> sync & upgrade system
-  krl           -> reload zsh
-  kdeps         -> check dependencies
-  kinstall      -> run full setup
+DIAGNOSTICS & HARDWARE PREFLIGHT:
+  kpreflight doctor -> full system check (base, desktop, audio, gaming, net)
+  kpreflight base   -> GPU & session checks (--install for safe GUI stack)
+  kpreflight gaming -> Vulkan, Mesa, MangoHud, GameMode checks
+  kpreflight audio  -> PipeWire, WirePlumber, ALSA, PulseAudio checks
+  kpreflight stream -> OBS Studio & xdg-desktop-portal capture checks
+
+SYSTEM CONTROL & CONFIG:
+  update            -> system package sync & upgrade (pacman/yay/apt)
+  kinstall          -> interactive installer (Flatpak, fonts, runtime, profiles, GPU)
+  kupdate           -> pull latest KZSH updates from GitHub
+  kdeps             -> check & install core shell dependencies
+  krl               -> reload current zsh session instantly
+  kcfg edit|get|set -> manage ~/.config/kzsh/config.yaml
+  ksys list|log     -> view & inspect systemd user/system services
 HELP
 }
 
