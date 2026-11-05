@@ -29,5 +29,5 @@ profile_debian_core: fastfetch btop
 profile_debian_dev: nodejs docker.io docker-compose build-essential
 
 # --- GENERIC FALLBACK PROFILES ---
-profile_media: chromium firefox discord mpv vlc gimp inkscape
+profile_media: chromium firefox vesktop mpv vlc gimp inkscape
 profile_extra: steam wine obs-studio
