@@ -110,6 +110,18 @@ kpkg() {
         esac
       done
 
+      # Separate Flatpak packages if any
+      local flatpak_pkgs=()
+      local remaining_arch_pkgs=()
+      for p in "${arch_pkgs[@]}"; do
+        if [[ "$p" == flatpak:* ]]; then
+          flatpak_pkgs+=("${p#flatpak:}")
+        else
+          remaining_arch_pkgs+=("$p")
+        fi
+      done
+      arch_pkgs=("${remaining_arch_pkgs[@]}")
+
       # Detect AUR helper
       local helper="pacman"
       if command -v yay >/dev/null 2>&1; then helper="yay"
@@ -134,6 +146,16 @@ kpkg() {
               print -P "%F{242}Install yay first: kinstall%f"
             else
               "$helper" -S --noconfirm --needed "${aur_pkgs[@]}"
+            fi
+          fi
+
+          # Install Flatpak packages if requested
+          if [[ ${#flatpak_pkgs[@]} -gt 0 ]]; then
+            if command -v flatpak >/dev/null 2>&1; then
+              print -P "%F{39}📦 Installing Flatpaks: ${flatpak_pkgs[*]}%f"
+              flatpak install -y flathub "${flatpak_pkgs[@]}"
+            else
+              print -P "%F{yellow}⚠ Flatpak is not installed. Run 'kinstall' to setup Flatpak.%f"
             fi
           fi
           ;;
